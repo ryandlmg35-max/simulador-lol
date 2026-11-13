@@ -481,7 +481,7 @@ function CalendarPage() {
                 🏆 CICLO 3: SPLIT 3 → MUNDIAL (WORLDS)
               </span>
               <span className="text-[10px] bg-gold/20 px-2 py-0.5 rounded text-gold font-mono">
-                JUL - NOV
+                JUL - DEZ
               </span>
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
@@ -489,6 +489,7 @@ function CalendarPage() {
               <div>• <strong>Agosto</strong>: 🌐 <strong>Global Masters & Supercopa</strong></div>
               <div>• <strong>Setembro</strong>: 🛡️ <strong>Copa dos Desafiantes</strong></div>
               <div>• <strong>Out/Nov</strong>: 🏆 <strong>Mundial (Worlds)</strong></div>
+              <div>• <strong>Dezembro</strong>: 🌍 <strong>Copa do Mundo de Seleções</strong></div>
               <div className="text-[11px] text-gold mt-1 font-semibold">
                 🎯 Classificam-se: Melhores dos 3 Splits & Vagas Globais.
               </div>

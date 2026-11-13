@@ -56,6 +56,8 @@ import { ImportLeagueTeams } from "@/components/lol/import-league-teams";
 import { ImportFromRanking } from "@/components/lol/import-from-ranking";
 import { ChampionshipLogoPicker } from "@/components/lol/championship-logo-picker";
 import { ANNUAL_CIRCUIT, pickInternationalTeams } from "@/lib/lol/circuit";
+import { buildWorldCupNationalTeams } from "@/lib/lol/world-cup";
+import { WorldCupCallupPanel } from "@/components/lol/world-cup-callup-panel";
 import { toast } from "sonner";
 
 type CreateSearch = {
@@ -174,14 +176,44 @@ function CreatePage() {
         setAccentColor(match.accentColor);
         setInternationalLevel(match.level);
         setScheduledMonth(prefilledMonth ?? match.month);
-        setPhasesA(
-          match.buildPhases().map((p) => ({
-            id: uid(),
-            name: p.name,
-            kind: p.kind,
-            config: p.config,
-          })),
-        );
+        if (match.id === "world-cup") {
+          const wc = buildWorldCupNationalTeams(championships, career);
+          if (wc.teams.length >= 2) {
+            setTeamsA(wc.teams);
+          }
+          const useGroups = wc.teams.length > 0 && wc.teams.length < 6;
+          const playoffSlots = wc.teams.length >= 10 ? 8 : wc.teams.length >= 4 ? 4 : 2;
+          setPhasesA([
+            useGroups
+              ? {
+                  id: uid(),
+                  name: "Fase de Grupos Única",
+                  kind: "groups",
+                  config: { kind: "groups", groupCount: 1, qualifiersPerGroup: playoffSlots, bestOf: 1, doubleRoundRobin: false },
+                }
+              : {
+                  id: uid(),
+                  name: "Fase de Grupos (Suíço)",
+                  kind: "swiss",
+                  config: { kind: "swiss", winsToAdvance: 3, lossesToEliminate: 3, defaultBestOf: 1 },
+                },
+            {
+              id: uid(),
+              name: "Playoffs da Copa do Mundo",
+              kind: "bracket",
+              config: { kind: "bracket", slots: playoffSlots, type: "single", defaultBestOf: 5, finalBestOf: 5, bracketReset: false, mode: "auto" },
+            },
+          ]);
+        } else {
+          setPhasesA(
+            match.buildPhases().map((p) => ({
+              id: uid(),
+              name: p.name,
+              kind: p.kind,
+              config: p.config,
+            })),
+          );
+        }
       }
     } else if (prefilledName) {
       // Se vier criando a partir de um campeonato existente com mesmo nome, preenche o formato e os times idênticos
@@ -927,6 +959,79 @@ function CreatePage() {
                   >
                     🛡️ Copa dos Desafiantes
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const wc = buildWorldCupNationalTeams(championships, career);
+                      const useGroups = wc.teams.length > 0 && wc.teams.length < 6;
+                      const playoffSlots = wc.teams.length >= 10 ? 8 : wc.teams.length >= 4 ? 4 : 2;
+                      applyTemplate(
+                        {
+                          name: "Copa do Mundo de Seleções",
+                          region: "Internacional",
+                          logo: OFFICIAL_REGION_LOGOS.WorldCup,
+                          accentColor: "#38bdf8",
+                          internationalLevel: "minor",
+                          scheduledMonth: 12,
+                        },
+                        [
+                          useGroups
+                            ? {
+                                id: uid(),
+                                name: "Fase de Grupos Única",
+                                kind: "groups",
+                                config: {
+                                  kind: "groups",
+                                  groupCount: 1,
+                                  qualifiersPerGroup: playoffSlots,
+                                  bestOf: 1,
+                                  doubleRoundRobin: false,
+                                },
+                              }
+                            : {
+                                id: uid(),
+                                name: "Fase de Grupos (Suíço)",
+                                kind: "swiss",
+                                config: {
+                                  kind: "swiss",
+                                  winsToAdvance: 3,
+                                  lossesToEliminate: 3,
+                                  defaultBestOf: 1,
+                                },
+                              },
+                          {
+                            id: uid(),
+                            name: "Playoffs da Copa do Mundo",
+                            kind: "bracket",
+                            config: {
+                              kind: "bracket",
+                              slots: playoffSlots,
+                              type: "single",
+                              defaultBestOf: 5,
+                              finalBestOf: 5,
+                              bracketReset: false,
+                              mode: "auto",
+                            },
+                          },
+                        ],
+                      );
+                      if (wc.teams.length >= 2) {
+                        setTeamsA(wc.teams);
+                        toast.success(
+                          `Copa do Mundo: ${wc.teams.length} seleções convocadas por desempenho (100% nativos)!`,
+                        );
+                      } else {
+                        toast.info(
+                          "Template da Copa do Mundo carregado! Cadastre ligas/jogadores para convocar seleções automaticamente.",
+                        );
+                      }
+                    }}
+                    className="border-2 border-sky-400/70 bg-black/50 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-sky-300 hover:bg-sky-500/20 transition-all shadow-[2px_2px_0_0_rgba(56,189,248,0.6)]"
+                    title="Torneio de elite de fim de ano (Dezembro): seleções nacionais 100% nativas convocadas por desempenho!"
+                  >
+                    🌍 Copa do Mundo (Seleções)
+                  </button>
                 </div>
               </div>
 
@@ -1431,6 +1536,52 @@ function CreatePage() {
                 isPlayInPhaseName(phasesOf(teamsDivision)[0]?.name ?? "")
               }
               onAiImport={(imported) => setTeamsOf(teamsDivision, (prev) => [...prev, ...imported])}
+              onWorldCupApply={(wcTeams) => {
+                setTeamsOf(teamsDivision, () => wcTeams);
+                const useGroups = wcTeams.length < 6;
+                const playoffSlots = wcTeams.length >= 10 ? 8 : wcTeams.length >= 4 ? 4 : 2;
+                setPhasesOf(teamsDivision, () => [
+                  useGroups
+                    ? {
+                        id: uid(),
+                        name: "Fase de Grupos Única",
+                        kind: "groups",
+                        config: {
+                          kind: "groups",
+                          groupCount: 1,
+                          qualifiersPerGroup: playoffSlots,
+                          bestOf: 1,
+                          doubleRoundRobin: false,
+                        },
+                      }
+                    : {
+                        id: uid(),
+                        name: "Fase de Grupos (Suíço)",
+                        kind: "swiss",
+                        config: {
+                          kind: "swiss",
+                          winsToAdvance: 3,
+                          lossesToEliminate: 3,
+                          defaultBestOf: 1,
+                        },
+                      },
+                  {
+                    id: uid(),
+                    name: "Playoffs da Copa do Mundo",
+                    kind: "bracket",
+                    config: {
+                      kind: "bracket",
+                      slots: playoffSlots,
+                      type: "single",
+                      defaultBestOf: 5,
+                      finalBestOf: 5,
+                      bracketReset: false,
+                      mode: "auto",
+                    },
+                  },
+                ]);
+                toast.success(`${wcTeams.length} seleções convocadas por desempenho!`);
+              }}
               addTeam={() => addTeamAt(teamsDivision)}
               updateTeam={(id, patch) => updateTeamAt(teamsDivision, id, patch)}
               removeTeam={(id) => removeTeamAt(teamsDivision, id)}
@@ -2379,6 +2530,7 @@ function TeamsList({
   accent,
   showRegionalSeedingHint,
   onAiImport,
+  onWorldCupApply,
   addTeam,
   updateTeam,
   removeTeam,
@@ -2389,15 +2541,23 @@ function TeamsList({
   accent: "gold" | "blood";
   showRegionalSeedingHint: boolean;
   onAiImport: (teams: Team[]) => void;
+  onWorldCupApply?: (teams: Team[]) => void;
   addTeam: () => void;
   updateTeam: (id: string, patch: Partial<Team>) => void;
   removeTeam: (id: string) => void;
 }) {
   const toDataUrl = useFileToDataUrl();
+  const isWorldCup = /copa do mundo|world cup|seleções|selecoes/i.test(champName ?? "");
 
   return (
     <div>
       <div className="mb-4 flex flex-col gap-3">
+        {isWorldCup && onWorldCupApply ? (
+          <WorldCupCallupPanel
+            onApplyTeams={onWorldCupApply}
+            currentTeamCount={teams.length}
+          />
+        ) : null}
         {showRegionalSeedingHint ? (
           <p className="border border-gold/40 bg-gold/5 px-3 py-2 text-xs text-muted-foreground">
             Informe a região de cada time (LCK, LPL, LEC, LCS, CBLOL...) para separar classificados

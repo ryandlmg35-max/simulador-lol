@@ -144,6 +144,7 @@ export function isInternationalChamp(c: Championship): boolean {
 export function detectInternationalLevel(c: Championship): InternationalLevel {
   if (c.internationalLevel) return c.internationalLevel;
   const name = c.name.toLowerCase();
+  if (/copa do mundo|world cup|seleções|selecoes/i.test(name)) return "minor";
   if (/worlds?|mundial|msi/i.test(name)) return "major";
   if (
     c.isInternational === true ||

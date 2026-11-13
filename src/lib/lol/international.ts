@@ -339,6 +339,16 @@ export function canonicalTournamentName(rawName?: string | null): string {
     return "Mid-Season Invitational (MSI)";
   }
 
+  // Copa do Mundo de Seleções (verificar antes de "world" para não colidir com Worlds)
+  if (
+    lower.includes("copa do mundo") ||
+    lower.includes("world cup") ||
+    lower.includes("seleções") ||
+    lower.includes("selecoes")
+  ) {
+    return "Copa do Mundo de Seleções";
+  }
+
   // Worlds / World Championship / Mundial
   if (
     lower.includes("world") ||

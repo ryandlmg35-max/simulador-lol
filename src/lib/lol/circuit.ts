@@ -357,6 +357,47 @@ export const ANNUAL_CIRCUIT: CircuitEventDef[] = [
       },
     ],
   },
+  {
+    id: "world-cup",
+    name: "Copa do Mundo de Seleções",
+    shortName: "Copa do Mundo",
+    month: 12, // Dezembro (Fechamento do ano pós-Worlds)
+    level: "minor",
+    accentColor: "#38bdf8",
+    logo: OFFICIAL_REGION_LOGOS.WorldCup,
+    category: "minor",
+    cycle: 3,
+    qualifiesFrom: "Convocação por Desempenho (100% Nacionais, sem gringos)",
+    description: "Torneio de elite de fim de ano entre seleções nacionais! Técnicos e jogadores são convocados pelo desempenho na temporada em qualquer liga do mundo — sem estrangeiros, e o número de seleções depende dos jogadores disponíveis por país.",
+    formatSummary: "Fase Suíça de Seleções Bo1 → Playoffs Eliminatórios Bo5",
+    matchPatterns: ["copa do mundo", "world cup", "seleções", "selecoes"],
+    suggestedTeamCount: 8,
+    buildPhases: () => [
+      {
+        name: "Fase de Grupos (Suíço)",
+        kind: "swiss",
+        config: {
+          kind: "swiss",
+          winsToAdvance: 3,
+          lossesToEliminate: 3,
+          defaultBestOf: 1,
+        },
+      },
+      {
+        name: "Playoffs da Copa do Mundo",
+        kind: "bracket",
+        config: {
+          kind: "bracket",
+          slots: 8,
+          type: "single",
+          defaultBestOf: 5,
+          finalBestOf: 5,
+          bracketReset: false,
+          mode: "auto",
+        },
+      },
+    ],
+  },
 ];
 
 export const MONTH_THEMES: Record<
@@ -466,11 +507,11 @@ export const MONTH_THEMES: Record<
     isSplitStage: false,
   },
   12: {
-    title: "Offseason, All-Star & Hall da Fama",
-    subtitle: "Janela de transferências, mercado de entressafra e coroação dos melhores da temporada.",
-    cycleBadge: "OFFSEASON",
+    title: "🌍 Copa do Mundo de Seleções & Offseason",
+    subtitle: "Torneio de elite de fim de ano entre seleções nacionais (100% nativos por desempenho), além do mercado e Hall da Fama.",
+    cycleBadge: "DEZEMBRO · SELEÇÕES",
     cycleNumber: 4,
-    icon: "⭐",
+    icon: "🌍",
     isSplitStage: false,
   },
 };

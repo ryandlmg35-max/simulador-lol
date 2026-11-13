@@ -16,6 +16,7 @@ export const OFFICIAL_REGION_LOGOS: Record<string, string> = {
   SuperCup: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" stroke="%23a855f7" stroke-width="4"/><path d="M28 35 L50 20 L72 35 L62 68 L38 68 Z" fill="%23a855f7" opacity="0.85"/><circle cx="50" cy="45" r="8" fill="%23ffd700"/><path d="M34 74 L66 74 L60 82 L40 82 Z" fill="%23a855f7"/></svg>`,
   GlobalMasters: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" stroke="%233b82f6" stroke-width="4"/><ellipse cx="50" cy="50" rx="36" ry="18" stroke="%233b82f6" stroke-width="3"/><ellipse cx="50" cy="50" rx="18" ry="36" stroke="%233b82f6" stroke-width="3"/><path d="M50 14 L50 86 M14 50 L86 50" stroke="%233b82f6" stroke-width="2"/><circle cx="50" cy="50" r="10" fill="%2360a5fa"/></svg>`,
   UnderdogsCup: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" stroke="%2310b981" stroke-width="4"/><path d="M50 18 L76 30 V54 C76 70 50 82 50 82 C50 82 24 70 24 54 V30 Z" fill="%2310b981" opacity="0.85"/><path d="M42 48 L48 54 L60 40" stroke="%230b0e14" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  WorldCup: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" fill="%230b1220" stroke="%2338bdf8" stroke-width="4"/><ellipse cx="50" cy="50" rx="28" ry="28" stroke="%2338bdf8" stroke-width="2.5" opacity="0.7"/><ellipse cx="50" cy="50" rx="14" ry="28" stroke="%2338bdf8" stroke-width="2" opacity="0.5"/><path d="M22 50 H78" stroke="%2338bdf8" stroke-width="2" opacity="0.5"/><path d="M36 30 H64 L60 54 C59 62 54 66 50 66 C46 66 41 62 40 54 Z" fill="%23eab308" stroke="%23fef08a" stroke-width="2"/><path d="M44 66 H56 L58 76 H42 Z" fill="%23eab308"/></svg>`,
 };
 
 export const OFFICIAL_TEAM_LOGOS: Record<string, string> = {
@@ -287,6 +288,7 @@ export const LEAGUE_LOGO_PRESETS: LeagueLogoPreset[] = [
   { id: "SuperCup", name: "Supercopa Intercontinental", logo: OFFICIAL_REGION_LOGOS.SuperCup, defaultRegion: "Internacional", accentColor: "#a855f7" },
   { id: "GlobalMasters", name: "Global Masters", logo: OFFICIAL_REGION_LOGOS.GlobalMasters, defaultRegion: "Internacional", accentColor: "#3b82f6" },
   { id: "UnderdogsCup", name: "Copa dos Desafiantes", logo: OFFICIAL_REGION_LOGOS.UnderdogsCup, defaultRegion: "Internacional", accentColor: "#10b981" },
+  { id: "WorldCup", name: "Copa do Mundo de Seleções", logo: OFFICIAL_REGION_LOGOS.WorldCup, defaultRegion: "Internacional", accentColor: "#38bdf8" },
 ];
 
 export function detectLeaguePreset(query?: string | null): LeagueLogoPreset | undefined {
@@ -298,6 +300,9 @@ export function detectLeaguePreset(query?: string | null): LeagueLogoPreset | un
   if (q.includes("lec")) return LEAGUE_LOGO_PRESETS.find((p) => p.id === "LEC");
   if (q.includes("lcs")) return LEAGUE_LOGO_PRESETS.find((p) => p.id === "LCS");
   if (q.includes("lcp")) return LEAGUE_LOGO_PRESETS.find((p) => p.id === "LCP");
+  if (q.includes("copa do mundo") || q.includes("world cup") || q.includes("seleções") || q.includes("selecoes")) {
+    return LEAGUE_LOGO_PRESETS.find((p) => p.id === "WorldCup");
+  }
   if (q.includes("world") || q.includes("mundial")) return LEAGUE_LOGO_PRESETS.find((p) => p.id === "Worlds");
   if (q.includes("msi") || q.includes("mid-season") || q.includes("invitational")) return LEAGUE_LOGO_PRESETS.find((p) => p.id === "MSI");
   if (q.includes("first stand") || q.includes("kickoff")) return LEAGUE_LOGO_PRESETS.find((p) => p.id === "FirstStand");

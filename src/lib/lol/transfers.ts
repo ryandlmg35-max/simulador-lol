@@ -455,7 +455,7 @@ function isBlockedInternational(c: Championship): boolean {
   if (c.internationalLevel === "major" || c.internationalLevel === "minor") return true;
   if (c.isInternational === true) return true;
   if (
-    /world|mundial|\bmsi\b|first\s*stand|kickoff|rift\s*rivals|global\s*master|supercopa|desafiante/i.test(
+    /copa do mundo|world cup|seleções|selecoes|world|mundial|\bmsi\b|first\s*stand|kickoff|rift\s*rivals|global\s*master|supercopa|desafiante/i.test(
       c.name ?? "",
     )
   ) {
