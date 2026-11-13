@@ -218,7 +218,7 @@ function MatchCardComponent({
       </div>
       {match.teamAId && match.teamBId ? (
         <form
-          className="flex items-center justify-center gap-2 border-t border-gold/30 bg-black/50 px-2 py-1.5"
+          className="flex items-center justify-center gap-1.5 border-t border-gold/30 bg-black/50 px-2 py-1.5"
           onSubmit={(event) => {
             event.preventDefault();
             submitScore();
@@ -231,7 +231,7 @@ function MatchCardComponent({
             value={scoreA}
             onChange={(event) => setScoreA(event.target.value)}
             aria-label={`Placar de ${teamA?.name ?? "time A"}`}
-            className="h-8 w-12 border border-gold/50 bg-input text-center font-display text-lg text-bone outline-none focus:border-gold focus:ring-1 focus:ring-gold"
+            className="h-8 w-10 border border-gold/50 bg-input text-center font-display text-lg text-bone outline-none focus:border-gold focus:ring-1 focus:ring-gold"
           />
           <span className="font-display text-base text-gold">×</span>
           <input
@@ -241,7 +241,7 @@ function MatchCardComponent({
             value={scoreB}
             onChange={(event) => setScoreB(event.target.value)}
             aria-label={`Placar de ${teamB?.name ?? "time B"}`}
-            className="h-8 w-12 border border-gold/50 bg-input text-center font-display text-lg text-bone outline-none focus:border-gold focus:ring-1 focus:ring-gold"
+            className="h-8 w-10 border border-gold/50 bg-input text-center font-display text-lg text-bone outline-none focus:border-gold focus:ring-1 focus:ring-gold"
           />
           <Button
             type="submit"
@@ -268,7 +268,7 @@ function MatchCardComponent({
             <button
               type="button"
               onClick={() => setLiveOpen(true)}
-              className={`inline-flex h-8 items-center gap-1 px-2 font-display text-[10px] font-bold uppercase tracking-wider shadow-sm transition-colors ${
+              className={`inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap px-2 font-display text-[10px] font-bold uppercase tracking-wider shadow-sm transition-colors ${
                 isGrandFinalMatch
                   ? "bg-blood text-white hover:bg-blood/85"
                   : "border border-blood/60 bg-blood/20 text-blood hover:bg-blood hover:text-white"
@@ -279,7 +279,7 @@ function MatchCardComponent({
                   : "Assistir e simular esta série ao vivo mapa a mapa"
               }
             >
-              <Radio className="h-3 w-3 animate-pulse" /> Ao Vivo
+              <Radio className="h-3 w-3 shrink-0 animate-pulse" /> Ao Vivo
             </button>
           ) : null}
           {match.winnerId ? (

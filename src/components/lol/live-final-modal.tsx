@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   FastForward,
   Pause,
@@ -791,7 +792,7 @@ export function LiveFinalModal({
   const liveClockMins = snapshot.clockMins;
   const probAPct = Math.round(snapshot.liveProbA * 100);
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
       <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden border-2 border-gold bg-[#0b0d13] shadow-[0_0_50px_rgba(200,170,110,0.25)]">
         {/* Top Broadcast Bar */}
@@ -1115,4 +1116,7 @@ export function LiveFinalModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return modalContent;
+  return createPortal(modalContent, document.body);
 }
