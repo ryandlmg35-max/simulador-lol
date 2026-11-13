@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Mic,
   Trophy,
@@ -63,7 +64,7 @@ export function PressConferenceModal({
   const questions = activeTab === "winner" ? data.winnerQuestions : data.loserQuestions;
   const activeTeam = activeTab === "winner" ? winnerTeam : loserTeam;
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
@@ -383,4 +384,7 @@ export function PressConferenceModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return modalContent;
+  return createPortal(modalContent, document.body);
 }

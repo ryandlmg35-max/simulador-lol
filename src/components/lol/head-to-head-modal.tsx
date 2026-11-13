@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Swords, Trophy, X, Flame } from "lucide-react";
 import type { Championship, Team } from "@/lib/lol/types";
 import { computeHeadToHead } from "@/lib/lol/h2h";
@@ -35,7 +36,7 @@ export function HeadToHeadModal({
   const pctA = total > 0 ? Math.round((stats.teamASeriesWins / total) * 100) : 50;
   const pctB = total > 0 ? 100 - pctA : 50;
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
@@ -205,4 +206,7 @@ export function HeadToHeadModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return modalContent;
+  return createPortal(modalContent, document.body);
 }

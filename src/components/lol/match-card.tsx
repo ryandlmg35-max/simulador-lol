@@ -218,7 +218,7 @@ function MatchCardComponent({
       </div>
       {match.teamAId && match.teamBId ? (
         <form
-          className="flex items-center justify-center gap-1.5 border-t border-gold/30 bg-black/50 px-2 py-1.5"
+          className="flex flex-wrap items-center justify-center gap-1.5 border-t border-gold/30 bg-black/50 px-2 py-1.5"
           onSubmit={(event) => {
             event.preventDefault();
             submitScore();

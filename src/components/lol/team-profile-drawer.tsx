@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Trophy,
   Medal,
@@ -179,7 +180,7 @@ export function TeamProfileDrawer({
   const form = teamMomentum?.form ?? 50;
   const streak = teamMomentum?.streak ?? 0;
 
-  return (
+  const drawerContent = (
     <div
       role="dialog"
       aria-modal="true"
@@ -520,4 +521,7 @@ export function TeamProfileDrawer({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return drawerContent;
+  return createPortal(drawerContent, document.body);
 }
