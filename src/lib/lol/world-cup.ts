@@ -1,6 +1,7 @@
 import type { CareerLedger, Championship, Player, PlayerRole, Team } from "./types";
 import { uid } from "./generate";
 import { ensureRoster, getResolvedAttrs, hashStr } from "./players";
+import { REAL_ROSTERS } from "./real-rosters";
 import { GLOBAL_FREE_AGENT_POOL } from "./transfers";
 
 export interface CountryMeta {
@@ -381,6 +382,45 @@ export function buildWorldCupNationalTeams(
           losses,
           mvps,
           form,
+          isFreeAgent: false,
+        });
+        candidatesByCountry.set(country, list);
+      }
+    }
+  }
+
+  // 2.5. Escaneia elencos reais de todas as ligas do mundo (REAL_ROSTERS) para convocar
+  // jogadores de países/ligas que ainda não foram criadas no save atual.
+  for (const [leagueName, teams] of Object.entries(REAL_ROSTERS)) {
+    for (const rt of teams) {
+      for (const rp of rt.players) {
+        const country = normalizeCountryCode(rp.country);
+        if (!country) continue;
+        const key = `${normStr(rp.ign)}|${rp.role}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+
+        const playerObj: Player = {
+          id: `wc_rr_${hashStr(`${rp.ign}:${rp.role}`).toString(36)}`,
+          ign: rp.ign,
+          real: rp.real ?? undefined,
+          role: rp.role,
+          country,
+          sub: rp.sub,
+        };
+        const overall = computePlayerOverall(playerObj);
+        const list = candidatesByCountry.get(country) ?? [];
+        list.push({
+          player: playerObj,
+          country,
+          clubName: rt.name,
+          clubRegion: leagueName,
+          performanceScore: Number((overall - (rp.sub ? 5 : 1)).toFixed(1)),
+          overall,
+          wins: 0,
+          losses: 0,
+          mvps: 0,
+          form: 50,
           isFreeAgent: false,
         });
         candidatesByCountry.set(country, list);

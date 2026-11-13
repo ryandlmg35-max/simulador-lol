@@ -438,6 +438,250 @@ export const GLOBAL_FREE_AGENT_POOL: Omit<Player, "id">[] = [
     age: 27,
     attrs: { mechanics: 75, gameIq: 79, clutch: 76, mentality: 78, intlExperience: 60 },
   },
+
+  // Alemanha (DE)
+  {
+    ign: "Gilius",
+    real: "Erberk Demir",
+    role: "jungle",
+    country: "DE",
+    age: 27,
+    attrs: { mechanics: 78, gameIq: 80, clutch: 79, mentality: 78, intlExperience: 62 },
+  },
+
+  // Dinamarca (DK)
+  {
+    ign: "Broxah",
+    real: "Mads Brock-Pedersen",
+    role: "jungle",
+    country: "DK",
+    age: 27,
+    attrs: { mechanics: 79, gameIq: 82, clutch: 80, mentality: 83, intlExperience: 78 },
+  },
+  {
+    ign: "Santorin",
+    real: "Lucas Tao Kilmer Larsen",
+    role: "jungle",
+    country: "DK",
+    age: 27,
+    attrs: { mechanics: 78, gameIq: 82, clutch: 79, mentality: 82, intlExperience: 72 },
+  },
+  {
+    ign: "TynX",
+    real: "Kristian Hansen",
+    role: "jungle",
+    country: "DK",
+    age: 25,
+    attrs: { mechanics: 77, gameIq: 77, clutch: 75, mentality: 76, intlExperience: 45 },
+  },
+
+  // Espanha (ES)
+  {
+    ign: "xPeke",
+    real: "Enrique Cedeño Martínez",
+    role: "mid",
+    country: "ES",
+    age: 30,
+    attrs: { mechanics: 77, gameIq: 85, clutch: 86, mentality: 84, intlExperience: 88 },
+  },
+  {
+    ign: "Pepiinero",
+    real: "Isaac Alvarado",
+    role: "mid",
+    country: "ES",
+    age: 28,
+    attrs: { mechanics: 76, gameIq: 78, clutch: 76, mentality: 77, intlExperience: 50 },
+  },
+
+  // Polônia (PL)
+  {
+    ign: "Agresivoo",
+    real: "Tobiasz Ciba",
+    role: "top",
+    country: "PL",
+    age: 25,
+    attrs: { mechanics: 78, gameIq: 78, clutch: 76, mentality: 77, intlExperience: 48 },
+  },
+  {
+    ign: "Woolite",
+    real: "Paweł Pruski",
+    role: "adc",
+    country: "PL",
+    age: 28,
+    attrs: { mechanics: 77, gameIq: 78, clutch: 75, mentality: 77, intlExperience: 52 },
+  },
+
+  // Japão (JP)
+  {
+    ign: "Ceros",
+    real: "Kyohei Yoshida",
+    role: "mid",
+    country: "JP",
+    age: 29,
+    attrs: { mechanics: 75, gameIq: 81, clutch: 77, mentality: 80, intlExperience: 68 },
+  },
+  {
+    ign: "Enty",
+    real: "Ryosei Tanioka",
+    role: "support",
+    country: "JP",
+    age: 27,
+    attrs: { mechanics: 75, gameIq: 79, clutch: 76, mentality: 78, intlExperience: 60 },
+  },
+
+  // Chile (CL)
+  {
+    ign: "Warangelus",
+    real: "Fabián Llanos",
+    role: "adc",
+    country: "CL",
+    age: 27,
+    attrs: { mechanics: 77, gameIq: 77, clutch: 76, mentality: 76, intlExperience: 55 },
+  },
+  {
+    ign: "Slow",
+    real: "Eduardo Garcés",
+    role: "support",
+    country: "CL",
+    age: 27,
+    attrs: { mechanics: 75, gameIq: 78, clutch: 76, mentality: 77, intlExperience: 55 },
+  },
+
+  // Turquia (TR)
+  {
+    ign: "Armut",
+    real: "İrfan Tükek",
+    role: "top",
+    country: "TR",
+    age: 26,
+    attrs: { mechanics: 80, gameIq: 80, clutch: 81, mentality: 79, intlExperience: 74 },
+  },
+  {
+    ign: "Serin",
+    real: "Tolga Ölmez",
+    role: "mid",
+    country: "TR",
+    age: 25,
+    attrs: { mechanics: 77, gameIq: 78, clutch: 76, mentality: 76, intlExperience: 48 },
+  },
+  {
+    ign: "HolyPhoenix",
+    real: "Anıl Işık",
+    role: "adc",
+    country: "TR",
+    age: 28,
+    attrs: { mechanics: 78, gameIq: 79, clutch: 78, mentality: 79, intlExperience: 64 },
+  },
+
+  // República Tcheca (CZ)
+  {
+    ign: "Dreedy",
+    real: "Jakub Viceník",
+    role: "top",
+    country: "CZ",
+    age: 25,
+    attrs: { mechanics: 77, gameIq: 77, clutch: 75, mentality: 76, intlExperience: 46 },
+  },
+  {
+    ign: "Jejky",
+    real: "David Jakubec",
+    role: "jungle",
+    country: "CZ",
+    age: 25,
+    attrs: { mechanics: 76, gameIq: 77, clutch: 75, mentality: 76, intlExperience: 44 },
+  },
+  {
+    ign: "Denyk",
+    real: "Petr Haramach",
+    role: "support",
+    country: "CZ",
+    age: 27,
+    attrs: { mechanics: 76, gameIq: 79, clutch: 76, mentality: 77, intlExperience: 54 },
+  },
+
+  // Reino Unido (GB)
+  {
+    ign: "Alphari",
+    real: "Barney Morris",
+    role: "top",
+    country: "GB",
+    age: 25,
+    attrs: { mechanics: 82, gameIq: 81, clutch: 78, mentality: 79, intlExperience: 70 },
+  },
+  {
+    ign: "Maxlore",
+    real: "Nubar Sarafian",
+    role: "jungle",
+    country: "GB",
+    age: 28,
+    attrs: { mechanics: 77, gameIq: 81, clutch: 78, mentality: 80, intlExperience: 68 },
+  },
+  {
+    ign: "Caedrel",
+    real: "Marc Lamont",
+    role: "mid",
+    country: "GB",
+    age: 28,
+    attrs: { mechanics: 76, gameIq: 85, clutch: 78, mentality: 82, intlExperience: 65 },
+  },
+  {
+    ign: "xMatty",
+    real: "Matthew Coombs",
+    role: "adc",
+    country: "GB",
+    age: 24,
+    attrs: { mechanics: 78, gameIq: 77, clutch: 75, mentality: 76, intlExperience: 48 },
+  },
+  {
+    ign: "kaSing",
+    real: "Raymond Tsang",
+    role: "support",
+    country: "GB",
+    age: 30,
+    attrs: { mechanics: 76, gameIq: 82, clutch: 78, mentality: 81, intlExperience: 72 },
+  },
+
+  // Países Baixos (NL)
+  {
+    ign: "Morsu",
+    real: "Bram Knol",
+    role: "top",
+    country: "NL",
+    age: 27,
+    attrs: { mechanics: 76, gameIq: 77, clutch: 75, mentality: 76, intlExperience: 46 },
+  },
+  {
+    ign: "Kirei",
+    real: "Thomas Yuen",
+    role: "jungle",
+    country: "NL",
+    age: 27,
+    attrs: { mechanics: 78, gameIq: 79, clutch: 77, mentality: 77, intlExperience: 58 },
+  },
+  {
+    ign: "Febiven",
+    real: "Fabian Diepstraten",
+    role: "mid",
+    country: "NL",
+    age: 28,
+    attrs: { mechanics: 79, gameIq: 82, clutch: 81, mentality: 80, intlExperience: 78 },
+  },
+  {
+    ign: "Tabzz",
+    real: "Erik van Helvert",
+    role: "adc",
+    country: "NL",
+    age: 30,
+    attrs: { mechanics: 76, gameIq: 80, clutch: 78, mentality: 79, intlExperience: 70 },
+  },
+  {
+    ign: "Hybrid",
+    real: "Glenn Doornenbal",
+    role: "support",
+    country: "NL",
+    age: 28,
+    attrs: { mechanics: 76, gameIq: 80, clutch: 77, mentality: 79, intlExperience: 64 },
+  },
 ];
 
 // ---------------------------------------------------------------------------
