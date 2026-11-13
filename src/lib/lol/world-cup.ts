@@ -98,11 +98,10 @@ export function getCountryMeta(code: string): CountryMeta {
   };
 }
 
-function buildFlagShieldSvg(meta: CountryMeta): string {
-  const [c1, c2, c3] = meta.colors;
-  const band3 = c3 ?? c1;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><defs><clipPath id="s"><path d="M50 8 L88 22 V52 C88 74 50 92 50 92 C50 92 12 74 12 52 V22 Z"/></clipPath></defs><g clip-path="url(%23s)"><rect x="10" y="8" width="80" height="28" fill="${encodeURIComponent(c1)}"/><rect x="10" y="36" width="80" height="28" fill="${encodeURIComponent(c2)}"/><rect x="10" y="64" width="80" height="30" fill="${encodeURIComponent(band3)}"/></g><path d="M50 8 L88 22 V52 C88 74 50 92 50 92 C50 92 12 74 12 52 V22 Z" stroke="%23facc15" stroke-width="4" fill="none"/></svg>`;
-  return `data:image/svg+xml;utf8,${svg}`;
+function buildRealFlagLogo(code: string): string {
+  const clean = code.trim().toLowerCase();
+  const iso = clean === "uk" ? "gb" : clean;
+  return `https://flagcdn.com/w160/${iso}.png`;
 }
 
 interface CoachCandidate {
@@ -579,10 +578,10 @@ export function buildWorldCupNationalTeams(
 
     const team: Team = {
       id: uid(),
-      name: meta.selectionName,
+      name: meta.name,
       tag: meta.tag,
       region: code,
-      logo: buildFlagShieldSvg(meta),
+      logo: buildRealFlagLogo(meta.code),
       color: meta.colors[0],
       coach,
       roster,
