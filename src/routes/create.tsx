@@ -1262,6 +1262,38 @@ function CreatePage() {
                 </p>
               </label>
               <div className="sm:col-span-2 border-2 border-gold/30 bg-black/40 p-4">
+                {/copa do mundo|world cup|seleções|selecoes/i.test(name) ? (
+                  <div className="border-2 border-sky-400/60 bg-sky-500/10 p-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-display text-xs uppercase tracking-widest text-sky-300 font-bold">
+                        🌍 Prestígio Especial · Copa do Mundo de Seleções
+                      </span>
+                      <span className="border border-sky-400/50 bg-sky-500/20 px-2 py-0.5 font-mono text-[10px] uppercase text-sky-200">
+                        Sistema Próprio de Seleções
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                      Torneio anual de elite entre países —{" "}
+                      <strong className="text-bone">separado do ranking de regiões de clubes</strong>{" "}
+                      (não altera vagas do MSI/Worlds).
+                    </p>
+                    <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                      <div className="border border-sky-400/30 bg-black/40 p-2 text-sky-200">
+                        <strong className="block text-sky-300">Evolução nos Clubes</strong>
+                        Atributos ganhos pelos convocados voltam para seus clubes.
+                      </div>
+                      <div className="border border-sky-400/30 bg-black/40 p-2 text-amber-200">
+                        <strong className="block text-amber-300">Prêmio aos Clubes</strong>
+                        +$250k (Campeão) / +$120k (Vice) de orçamento e cultura por titular cedido.
+                      </div>
+                      <div className="border border-sky-400/30 bg-black/40 p-2 text-emerald-200">
+                        <strong className="block text-emerald-300">Hall da Fama Nacional</strong>
+                        Consagra a Seleção campeã e o técnico no ranking mundial.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 <span className="mb-2 block font-display text-xs uppercase tracking-widest text-gold font-bold">
                   Prestígio & Nível de Pontos do Campeonato
                 </span>
@@ -1329,6 +1361,8 @@ function CreatePage() {
                     </div>
                   </button>
                 </div>
+                  </>
+                )}
               </div>
               <label className="block sm:col-span-2">
                 <div className="flex items-center gap-2">

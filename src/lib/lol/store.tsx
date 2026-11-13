@@ -375,9 +375,9 @@ function creditMatch(
   table[normKey(loser.name)] = l;
   next[game] = table;
 
-  // ---------- Desempenho INTERNACIONAL das regiões ----------
+  // ---------- Desempenho INTERNACIONAL das regiões (Copa do Mundo de Seleções tem prestígio separado) ----------
   let result = next;
-  if (isInternationalChamp(c)) {
+  if (isInternationalChamp(c) && !isWorldCupChamp(c)) {
     const intlTable = { ...(result.international?.[game] ?? {}) };
     const creditIntl = (
       region: string | undefined,
@@ -523,9 +523,9 @@ function creditBonus(
   table[normKey(team.name)] = entry;
   next[game] = table;
 
-  // ---------- Desempenho INTERNACIONAL da região ----------
+  // ---------- Desempenho INTERNACIONAL da região (Copa do Mundo de Seleções não altera vagas de clubes) ----------
   let result = next;
-  if (isInternationalChamp(c)) {
+  if (isInternationalChamp(c) && !isWorldCupChamp(c)) {
     const region = normalizeRegion(team.region || entry.region || inferTeamRegion(team.name));
     if (region && region !== "OUTROS") {
       const intlTable = { ...(result.international?.[game] ?? {}) };
