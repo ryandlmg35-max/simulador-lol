@@ -648,12 +648,13 @@ export function pickInternationalTeams(
       }
     }
   } else if (def.id === "underdogs-cup") {
-    // 🛡️ COPA DOS DESAFIANTES: Exclusivo para as regiões desafiantes (CBLOL e LCP)
-    // Top 4 de CBLOL + Top 4 de LCP = 8 equipes!
-    for (const reg of ["CBLOL", "LCP"]) {
+    // 🛡️ COPA DOS DESAFIANTES: 4 vagas para as regiões Major (Top 2 do ranking) e 2 para as demais
+    const officialRanking = getOfficialRegionRanking(career, "lol");
+    for (const reg of officialRegions) {
       const ranking = regionalRankings.get(reg);
       if (!ranking || ranking.length === 0) continue;
-      const toTake = ranking.slice(0, 4);
+      const isMajor = officialRanking.find((r) => r.region === reg)?.isTop2 ?? false;
+      const toTake = ranking.slice(0, isMajor ? 4 : 2);
       for (const team of toTake) {
         if (!seenNames.has(team.name.toLowerCase().trim())) {
           seenNames.add(team.name.toLowerCase().trim());

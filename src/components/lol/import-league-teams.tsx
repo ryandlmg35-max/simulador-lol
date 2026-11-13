@@ -86,15 +86,15 @@ function getTargetCountFor(
     };
   }
 
-  // 7. Copa dos Desafiantes: Top 4 para CBLOL e LCP
+  // 7. Copa dos Desafiantes: 4 vagas para Regiões Major (Top 2 do Momento) e 2 para as demais
   if (target.includes("desafiante") || target.includes("underdog")) {
-    const isChallenger = region === "CBLOL" || region === "LCP";
-    const to = isChallenger ? 4 : 2;
+    const isMajor = isTop2;
+    const to = isMajor ? 4 : 2;
     return {
       to,
-      label: `${to} vagas (${isChallenger ? "Região Desafiante Principal" : "Convidada"} — Top ${to} da ${region})`,
+      label: `${to} vagas (${isMajor ? "Região Major — Top 2 Mundial" : "Convidada / Desafiante"} — Top ${to} da ${region})`,
       tagBadge: `COPA DESAFIANTES: ${to} VAGAS (TOP ${to})`,
-      isDynamic: false,
+      isDynamic: true,
     };
   }
 
