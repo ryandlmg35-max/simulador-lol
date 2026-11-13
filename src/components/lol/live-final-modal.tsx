@@ -20,6 +20,8 @@ import {
   type MatchSimulationContext,
 } from "@/lib/lol/momentum";
 import { effectiveRating, ensureRoster, pickStarters, rosterAverageAttrs } from "@/lib/lol/players";
+import { useStore } from "@/lib/lol/store";
+import { seriesRanking } from "@/lib/lol/promotion";
 
 interface LiveFeedItem {
   id: string;
@@ -567,8 +569,51 @@ export function LiveFinalModal({
   onFinish: (winnerId: string, score: { a: number; b: number }) => void;
   onClose: () => void;
 }) {
+  const { championships } = useStore();
   const isCs2 = (championship.game ?? "lol") === "cs2";
   const needed = Math.ceil(match.bestOf / 2);
+
+  const { seedA, seedB } = useMemo(() => {
+    const isCurrentIntl =
+      championship.internationalLevel === "minor" ||
+      championship.internationalLevel === "major" ||
+      championship.isInternational === true ||
+      /copa do mundo|world cup|seleções|selecoes|world|msi|global master|supercopa|desafiante|rift|kickoff|first stand/i.test(
+        championship.name ?? "",
+      );
+
+    const findSeed = (team: Team): number | null => {
+      if (!isCurrentIntl) {
+        const ranked = seriesRanking(championship.teams, championship.phases);
+        const idx = ranked.findIndex((r) => r.teamId === team.id);
+        return idx >= 0 ? idx + 1 : null;
+      }
+      const normName = team.name.trim().toLowerCase();
+      const localLeagues = championships
+        .filter(
+          (c) =>
+            (c.game ?? "lol") === (championship.game ?? "lol") &&
+            c.internationalLevel !== "major" &&
+            c.internationalLevel !== "minor" &&
+            !c.isInternational &&
+            !/copa do mundo|world cup|seleções|selecoes|world|msi|global master|supercopa|desafiante|rift|kickoff|first stand/i.test(
+              c.name ?? "",
+            ),
+        )
+        .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+
+      for (const league of localLeagues) {
+        const localTeam = league.teams.find((t) => t.name.trim().toLowerCase() === normName);
+        if (!localTeam) continue;
+        const ranked = seriesRanking(league.teams, league.phases);
+        const idx = ranked.findIndex((r) => r.teamId === localTeam.id);
+        if (idx >= 0) return idx + 1;
+      }
+      return null;
+    };
+
+    return { seedA: findSeed(teamA), seedB: findSeed(teamB) };
+  }, [championship, championships, teamA, teamB]);
 
   // Calcula probabilidade inicial exatamente com a mesma engine do simulador
   const simContext = useMemo(() => {
@@ -849,8 +894,14 @@ export function LiveFinalModal({
               <span className="mt-2 font-display text-xl font-bold uppercase tracking-wider text-bone">
                 {teamA.name}
               </span>
-              <div className="mt-0.5 flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+              <div className="mt-0.5 flex flex-wrap items-center justify-center gap-1.5 text-[10px] font-mono text-muted-foreground">
                 <span>{teamA.region || "REG"}</span>
+                {seedA ? (
+                  <>
+                    <span>•</span>
+                    <span className="font-semibold text-sky-300">Seed #{seedA}</span>
+                  </>
+                ) : null}
                 <span>•</span>
                 <span className="text-gold">Força {simContext.ratingA}</span>
               </div>
@@ -934,8 +985,14 @@ export function LiveFinalModal({
               <span className="mt-2 font-display text-xl font-bold uppercase tracking-wider text-bone">
                 {teamB.name}
               </span>
-              <div className="mt-0.5 flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+              <div className="mt-0.5 flex flex-wrap items-center justify-center gap-1.5 text-[10px] font-mono text-muted-foreground">
                 <span>{teamB.region || "REG"}</span>
+                {seedB ? (
+                  <>
+                    <span>•</span>
+                    <span className="font-semibold text-sky-300">Seed #{seedB}</span>
+                  </>
+                ) : null}
                 <span>•</span>
                 <span className="text-gold">Força {simContext.ratingB}</span>
               </div>
