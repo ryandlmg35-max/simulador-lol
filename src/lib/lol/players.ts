@@ -839,29 +839,77 @@ export function matchPlayerDeltas(params: {
 }): Record<string, Partial<PlayerAttrs>> {
   const { winnerRoster, loserRoster, isPlayoff, isIntl, isFinal } = params;
   const deltas: Record<string, Partial<PlayerAttrs>> = {};
-  if (!isPlayoff && !isIntl) return deltas;
 
-  for (const p of pickStarters(winnerRoster ?? [])) {
-    const d: Partial<PlayerAttrs> = { clutch: 1 };
-    if ((p.age ?? 22) <= 21) d.mechanics = 1;
-    if (isIntl) {
-      d.intlExperience = 2;
-      d.mentality = 1;
+  const winnerStarters = pickStarters(winnerRoster ?? []);
+  const loserStarters = pickStarters(loserRoster ?? []);
+
+  const avgIntlExp = (starters: Player[]): number => {
+    if (starters.length === 0) return 0;
+    const sum = starters.reduce(
+      (acc, p) => acc + getResolvedAttrs(p.attrs, p.ign, p.role, p.country, p.age).intlExperience,
+      0,
+    );
+    return sum / starters.length;
+  };
+
+  const addDelta = (id: string, patch: Partial<PlayerAttrs>) => {
+    const cur = deltas[id] ?? {};
+    const next: Partial<PlayerAttrs> = { ...cur };
+    for (const [k, v] of Object.entries(patch) as [keyof PlayerAttrs, number | undefined][]) {
+      if (v) next[k] = (next[k] ?? 0) + v;
     }
-    if (isFinal) {
-      d.clutch = (d.clutch ?? 0) + 1;
-      d.mentality = (d.mentality ?? 0) + 1;
+    if (Object.keys(next).length > 0) deltas[id] = next;
+  };
+
+  if (isPlayoff || isIntl) {
+    for (const p of winnerStarters) {
+      const d: Partial<PlayerAttrs> = { clutch: 1 };
+      if ((p.age ?? 22) <= 21) d.mechanics = 1;
+      if (isIntl) {
+        d.intlExperience = 2;
+        d.mentality = 1;
+      }
+      if (isFinal) {
+        d.clutch = (d.clutch ?? 0) + 1;
+        d.mentality = (d.mentality ?? 0) + 1;
+      }
+      addDelta(p.id, d);
     }
-    deltas[p.id] = d;
+    for (const p of loserStarters) {
+      const d: Partial<PlayerAttrs> = { clutch: -1 };
+      if (isIntl) {
+        d.intlExperience = 1;
+        if (isFinal) d.mentality = -1;
+      }
+      addDelta(p.id, d);
+    }
   }
-  for (const p of pickStarters(loserRoster ?? [])) {
-    const d: Partial<PlayerAttrs> = { clutch: -1 };
-    if (isIntl) {
-      d.intlExperience = 1;
-      if (isFinal) d.mentality = -1;
+
+  // Evolução na liga local ao enfrentar times experientes que voltaram bem do internacional:
+  // quem joga contra (ou vence) um elenco com alta experiência internacional absorve ritmo e macro.
+  if (!isIntl && winnerStarters.length > 0 && loserStarters.length > 0) {
+    const winnerIntl = avgIntlExp(winnerStarters);
+    const loserIntl = avgIntlExp(loserStarters);
+
+    if (loserIntl >= 58 && loserIntl - winnerIntl >= 10) {
+      for (const p of winnerStarters) {
+        const pIntl = getResolvedAttrs(p.attrs, p.ign, p.role, p.country, p.age).intlExperience;
+        if (pIntl < loserIntl) {
+          addDelta(p.id, { intlExperience: 1, gameIq: 1 });
+        }
+      }
     }
-    deltas[p.id] = d;
+
+    if (winnerIntl >= 60 && winnerIntl - loserIntl >= 15) {
+      for (const p of loserStarters) {
+        const pIntl = getResolvedAttrs(p.attrs, p.ign, p.role, p.country, p.age).intlExperience;
+        if (pIntl < winnerIntl - 10) {
+          addDelta(p.id, { intlExperience: 1 });
+        }
+      }
+    }
   }
+
   return deltas;
 }
 
