@@ -40,8 +40,10 @@ export function planPhaseAdvance(params: {
   target: Phase;
   /** Ids de todos os times da divisão (filtro dos diretos). */
   divisionTeamIds: Set<string>;
+  /** Permite refazer a fase alvo mesmo se já tiver partidas jogadas (após confirmação). */
+  force?: boolean;
 }): PhaseAdvancePlan | null {
-  const { previous, target, divisionTeamIds } = params;
+  const { previous, target, divisionTeamIds, force } = params;
   if (!isPhaseComplete(previous)) return null;
 
   const previousIds = phaseTeamIdsInOrder(previous);
@@ -72,9 +74,8 @@ export function planPhaseAdvance(params: {
     };
   }
 
-  // Não reconstrói uma fase que já tem resultado registrado — isso apagaria
-  // placares já jogados.
-  if (hasRealResult) return null;
+  // Não reconstrói uma fase que já tem resultado registrado — a menos que force=true.
+  if (hasRealResult && !force) return null;
   if (limit !== undefined && !previous.internationalPlayIn && qualified.length < limit) return null;
   if (previous.internationalPlayIn && qualified.length === 0) return null;
 

@@ -996,7 +996,7 @@ interface StoreCtx {
   resetPhase: (championshipId: string, phaseId: string) => void;
   /** Zera TODOS os resultados do campeonato (fases, Série B e play-in). */
   resetChampionship: (championshipId: string) => void;
-  advanceToPhase: (championshipId: string, targetPhaseId: string) => void;
+  advanceToPhase: (championshipId: string, targetPhaseId: string, force?: boolean) => void;
   /** Preenche a primeira fase (vazia) de uma série com os times da própria série. */
   seedPhaseTeams: (championshipId: string, phaseId: string) => void;
   updateTeam: (championshipId: string, team: Team) => void;
@@ -2339,7 +2339,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const advanceToPhase = useCallback((championshipId: string, targetPhaseId: string) => {
+  const advanceToPhase = useCallback((championshipId: string, targetPhaseId: string, force?: boolean) => {
     setChampionships((prev) =>
       prev.map((c) => {
         if (c.id !== championshipId) return c;
@@ -2357,6 +2357,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           previous,
           target,
           divisionTeamIds: new Set(divisionTeams(c, division).map((team) => team.id)),
+          force,
         });
         if (!advance) return c;
         return mapDivisionPhases(c, division, (phases) =>

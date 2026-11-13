@@ -928,7 +928,20 @@ function ChampionshipPage() {
                 {currentPhaseIndex > 0 ? (
                   <button
                     type="button"
-                    onClick={() => advanceToPhase(championship.id, currentPhase.id)}
+                    onClick={async () => {
+                      if (hasRealTargetResult && reservedSlots === 0) {
+                        const ok = await confirm({
+                          title: "Substituir confrontos desta fase?",
+                          message: `Esta fase já possui partidas finalizadas. Puxar os ${previousQualified.length} classificados irá refazer a chave com os novos classificados e apagar os resultados atuais desta fase.`,
+                          confirmLabel: "Puxar classificados",
+                          tone: "gold",
+                        });
+                        if (!ok) return;
+                        advanceToPhase(championship.id, currentPhase.id, true);
+                        return;
+                      }
+                      advanceToPhase(championship.id, currentPhase.id);
+                    }}
                     disabled={!previousReady}
                     title={
                       previousReady
