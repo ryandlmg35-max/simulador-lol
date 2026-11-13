@@ -1365,6 +1365,36 @@ function sanitizeLegacyClonedRosters(list: Championship[]): Championship[] {
   });
 }
 
+function normalizeHistorySplitKey(label: string): string {
+  return label
+    .replace(/\s*\(Série B\)\s*$/i, "")
+    .replace(/[·\-_/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function deduplicateHistoryList(
+  entries: Championship["history"],
+): Championship["history"] {
+  if (!entries || entries.length <= 1) return entries;
+  const seen = new Set<string>();
+  const out: NonNullable<Championship["history"]> = [];
+  for (const e of entries) {
+    const splitKey = normalizeHistorySplitKey(e.splitLabel || "");
+    const teamKey = e.teamName.trim().toLowerCase();
+    const composite = `${teamKey}:::${splitKey}`;
+    // Evita duplicar exatamente o mesmo split (mesmo com variação de pontuação como "2026 · Split 1" vs "2026 Split 1")
+    if (seen.has(composite) || (splitKey && seen.has(`split:::${splitKey}`))) {
+      continue;
+    }
+    seen.add(composite);
+    if (splitKey) seen.add(`split:::${splitKey}`);
+    out.push(e);
+  }
+  return out;
+}
+
 function load(): Championship[] {
   if (typeof window === "undefined") return [];
   try {
@@ -1373,9 +1403,16 @@ function load(): Championship[] {
     const parsed = JSON.parse(raw) as Championship[];
     // Legacy migration: pre-CS2 championships default to LoL; old division
     // tags are split into the standalone `serieB` block.
-    const migrated = parsed.map((c) =>
-      ensureTeamLogos(ensureTeamRosters(migrateChampionship({ ...c, game: c.game ?? "lol" }))),
-    );
+    const migrated = parsed.map((c) => {
+      const base = ensureTeamLogos(ensureTeamRosters(migrateChampionship({ ...c, game: c.game ?? "lol" })));
+      return {
+        ...base,
+        history: deduplicateHistoryList(base.history),
+        serieB: base.serieB
+          ? { ...base.serieB, history: deduplicateHistoryList(base.serieB.history) }
+          : base.serieB,
+      };
+    });
     return sanitizeLegacyClonedRosters(migrated);
   } catch {
     return [];
@@ -2716,9 +2753,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         id: Math.random().toString(36).slice(2, 10),
         savedAt: new Date().toISOString(),
       };
+      const targetSplitKey = normalizeHistorySplitKey(entry.splitLabel || "");
+      const targetTeamKey = entry.teamName.trim().toLowerCase();
+      const upsertHistory = (list: ChampionHistoryEntry[] = []) => {
+        const existsIdx = list.findIndex((h) => {
+          const k = normalizeHistorySplitKey(h.splitLabel || "");
+          return (
+            (k !== "" && k === targetSplitKey) ||
+            (h.teamName.trim().toLowerCase() === targetTeamKey && k === targetSplitKey)
+          );
+        });
+        if (existsIdx >= 0) {
+          return list.map((h, i) => (i === existsIdx ? { ...h, ...newEntry, id: h.id } : h));
+        }
+        return [newEntry, ...list];
+      };
+
       // NÃO credita na carreira aqui — o crédito automático em setMatchResult
       // já disparou quando a final foi decidida (evita duplicação de título).
-      // O "Salvar no Histórico" apenas registra no card do campeonato.
+      // O "Salvar no Histórico" apenas registra no card do campeonato (sem duplicar).
       setChampionships((prev) =>
         prev.map((c) => {
           if (c.id !== championshipId) return c;
@@ -2726,10 +2779,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const serieB = ensureSerieB(c);
             return {
               ...c,
-              serieB: { ...serieB, history: [newEntry, ...(serieB.history ?? [])] },
+              serieB: { ...serieB, history: upsertHistory(serieB.history) },
             };
           }
-          return { ...c, history: [newEntry, ...(c.history ?? [])] };
+          return { ...c, history: upsertHistory(c.history) };
         }),
       );
     },

@@ -17,7 +17,7 @@ import type { CareerLedger, Championship, GameId, Player, Team } from "@/lib/lol
 import { TeamLogo } from "./team-logo";
 import { CountryFlag } from "./country-flag";
 import { ensureRoster, pickStarters } from "@/lib/lol/players";
-import { canonicalTournamentName } from "@/lib/lol/international";
+import { canonicalTournamentName, extractSeasonFromChampName } from "@/lib/lol/international";
 import { useStore } from "@/lib/lol/store";
 import { getPlayerCareerAwards } from "@/lib/lol/mvp";
 
@@ -87,6 +87,14 @@ export function TeamProfileDrawer({
     rawDate?: string;
   }
 
+  const normTitleSplit = (s: string) =>
+    s
+      .replace(/\s*\(Série B\)\s*$/i, "")
+      .replace(/[·\-_/]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
   const titleMap = new Map<string, DetailedTitle>();
 
   // 1. Títulos registrados no Hall da Fama permanente da Carreira (career.titles)
@@ -94,7 +102,7 @@ export function TeamProfileDrawer({
     if (matchTeam(t.teamName, t.teamTag)) {
       const tourney = canonicalTournamentName(t.champName || championship?.name || "Campeonato Oficial");
       const split = t.label || "Edição Oficial";
-      const key = `${tourney.toLowerCase()}:::${split.toLowerCase()}`;
+      const key = `${tourney.toLowerCase()}:::${normTitleSplit(split)}`;
       titleMap.set(key, {
         key,
         titleName: `Campeão do ${tourney}`,
@@ -114,14 +122,17 @@ export function TeamProfileDrawer({
     for (const { h, cName } of [...listA, ...listB]) {
       if (matchTeam(h.teamName, h.teamTag)) {
         const tourney = canonicalTournamentName(cName || "Campeonato Oficial");
-        const split = h.splitLabel || "Split Oficial";
-        const key = `${tourney.toLowerCase()}:::${split.toLowerCase()}`;
-        if (!titleMap.has(key) || h.savedAt) {
-          titleMap.set(key, {
-            key,
+        const rawSplit = h.splitLabel || c.season || "Split Oficial";
+        const canonicalSplit = extractSeasonFromChampName(cName, rawSplit);
+        const key = `${tourney.toLowerCase()}:::${normTitleSplit(canonicalSplit)}`;
+        const altKey = `${tourney.toLowerCase()}:::${normTitleSplit(rawSplit)}`;
+        const existingKey = titleMap.has(key) ? key : titleMap.has(altKey) ? altKey : key;
+        if (!titleMap.has(existingKey) || h.savedAt) {
+          titleMap.set(existingKey, {
+            key: existingKey,
             titleName: `Campeão do ${tourney}`,
             tourney,
-            split,
+            split: rawSplit,
             dateFormatted: formatConquestDate(h.savedAt),
             rawDate: h.savedAt,
           });

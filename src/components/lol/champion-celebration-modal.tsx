@@ -26,10 +26,22 @@ export function ChampionCelebrationModal({
   onOpenPressConference?: () => void;
   onClose: () => void;
 }) {
-  const [splitLabel, setSplitLabel] = useState(
-    `${championship.season ?? "Split Atual"}${division === 2 ? " (Série B)" : ""}`,
+  const defaultLabel = `${championship.season ?? "Split Atual"}${division === 2 ? " (Série B)" : ""}`;
+  const [splitLabel, setSplitLabel] = useState(defaultLabel);
+  const existingHistory = division === 2 ? (championship.serieB?.history ?? []) : (championship.history ?? []);
+  const norm = (s: string) =>
+    s
+      .replace(/\s*\(Série B\)\s*$/i, "")
+      .replace(/[·\-_/]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  const alreadySaved = existingHistory.some(
+    (h) =>
+      h.teamName.trim().toLowerCase() === champion.name.trim().toLowerCase() &&
+      norm(h.splitLabel || "") === norm(defaultLabel),
   );
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(alreadySaved);
 
   useEffect(() => {
     // Fire festive celebratory confetti on mount

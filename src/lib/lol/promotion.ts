@@ -113,6 +113,8 @@ export function nextSeasonLabel(season?: string): string {
 const normalizedSplit = (label: string) =>
   label
     .replace(/\s*\(Série B\)\s*$/i, "")
+    .replace(/[·\-_/]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 
