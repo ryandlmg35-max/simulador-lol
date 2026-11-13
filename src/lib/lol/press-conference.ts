@@ -51,6 +51,20 @@ const ROLE_PT: Record<string, string> = {
   support: "SUPORTE",
 };
 
+type ExpectationTier = "major_contender" | "regional_power" | "underdog";
+type SeriesCause =
+  | "mechanics_gap"
+  | "macro_iq"
+  | "clutch_mentality"
+  | "intl_experience"
+  | "adapt_draft"
+  | "balanced";
+
+function pickVariant<T>(seedBase: string, salt: string, options: T[]): T {
+  const idx = hashStr(`${seedBase}:${salt}`) % options.length;
+  return options[idx];
+}
+
 function resolveTeamStarters(team: Team): ResolvedPlayer[] {
   const raw = pickStarters(ensureRoster(team) ?? []);
   return raw.map((p) => {
@@ -72,23 +86,76 @@ function avgAttr(players: ResolvedPlayer[], key: keyof Required<Player["attrs"]>
   return Math.round(sum / players.length);
 }
 
-function getOutletsForContext(game: string, region?: string, isIntl?: boolean) {
+function classifyExpectation(
+  team: Team,
+  elo: number,
+  titles: number,
+  isIntl: boolean,
+  isWorldCup: boolean,
+): ExpectationTier {
+  const reg = (team.region ?? "").trim().toUpperCase();
+  const isTraditionalMajor = ["LCK", "LPL", "KR", "CN"].includes(reg);
+  const isMidMajor = ["LEC", "LCS", "EU", "US", "NA", "DK", "FR", "DE", "ES"].includes(reg);
+
+  if (isWorldCup) {
+    if (["KR", "CN", "LCK", "LPL"].includes(reg) || elo >= 74) return "major_contender";
+    if (elo >= 63 || isMidMajor) return "regional_power";
+    return "underdog";
+  }
+
+  if (isIntl) {
+    if (isTraditionalMajor || elo >= 76 || titles >= 3) return "major_contender";
+    if (isMidMajor || elo >= 67) return "regional_power";
+    return "underdog";
+  }
+
+  // Liga local
+  if (elo >= 68 || titles >= 2) return "major_contender";
+  if (elo >= 56) return "regional_power";
+  return "underdog";
+}
+
+function detectSeriesCause(diffs: {
+  mech: number;
+  iq: number;
+  clutch: number;
+  mental: number;
+  intl: number;
+  adapt: number;
+  isIntl: boolean;
+  isSilverScrapes: boolean;
+}): SeriesCause {
+  if (diffs.isIntl && diffs.intl >= 6 && diffs.mental >= 2) return "intl_experience";
+  if (diffs.isSilverScrapes && diffs.clutch >= 1) return "clutch_mentality";
+
+  const ranked: { cause: SeriesCause; score: number }[] = [
+    { cause: "mechanics_gap", score: diffs.mech },
+    { cause: "macro_iq", score: diffs.iq },
+    { cause: "clutch_mentality", score: Math.round((diffs.clutch + diffs.mental) / 2) },
+    { cause: "adapt_draft", score: diffs.adapt },
+  ];
+  ranked.sort((a, b) => b.score - a.score);
+  if (ranked[0].score >= 3) return ranked[0].cause;
+  return "balanced";
+}
+
+function getOutletsForContext(game: string, region?: string, isIntl?: boolean, isWorldCup?: boolean) {
   if (game === "cs2") {
     return [
       { outlet: "HLTV.org", journalist: "Striker" },
-      { outlet: "Draft5", journalist: " Roque" },
-      { outlet: "Dust2 Brasil", journalist: " Bida" },
+      { outlet: "Draft5", journalist: "Roque" },
+      { outlet: "Dust2 Brasil", journalist: "Bida" },
       { outlet: "ESL Broadcast Desk", journalist: "SPUNJ" },
       { outlet: "GameArena CS", journalist: "Mch" },
     ];
   }
-  if (game === "valorant") {
+  if (isWorldCup) {
     return [
-      { outlet: "VLR.gg", journalist: " Sideshow" },
-      { outlet: "Valorant Zone", journalist: " Nyang" },
-      { outlet: "Mais Esports VAL", journalist: " Tixinha" },
-      { outlet: "Sheep Esports", journalist: " Brieuc Seeger" },
-      { outlet: "Dot Esports", journalist: " George Geddes" },
+      { outlet: "World Cup Press Pool", journalist: "Sjokz" },
+      { outlet: "Inven Global", journalist: "Ashley Kang" },
+      { outlet: "Mais Esports", journalist: "Eric Teixeira" },
+      { outlet: "Sheep Esports", journalist: "Wooloo" },
+      { outlet: "Bancada das Seleções", journalist: "Caedrel" },
     ];
   }
   if (isIntl) {
@@ -101,22 +168,22 @@ function getOutletsForContext(game: string, region?: string, isIntl?: boolean) {
     ];
   }
   const reg = (region ?? "").toUpperCase();
-  if (reg === "CBLOL") {
+  if (reg === "CBLOL" || reg === "BR") {
     return [
       { outlet: "Mais Esports", journalist: "Eric Teixeira" },
       { outlet: "Ilha das Lendas", journalist: "Baiano" },
       { outlet: "ge.globo Esports", journalist: "Chandy Teixeira" },
-      { outlet: " MGG Brasil", journalist: "Schaeppi" },
+      { outlet: "MGG Brasil", journalist: "Schaeppi" },
       { outlet: "Coletiva Oficial CBLOL", journalist: "Takeshi" },
     ];
   }
-  if (reg === "LCK") {
+  if (reg === "LCK" || reg === "KR") {
     return [
       { outlet: "Inven Global", journalist: "Ashley Kang" },
       { outlet: "Daily Esports KR", journalist: "Kenzi" },
-      { outlet: "FOMOS Korea", journalist: " Kim Yong-woo" },
-      { outlet: "LCK Press Room", journalist: " Wolf" },
-      { outlet: "Korizon Esports", journalist: " Kevin Kim" },
+      { outlet: "FOMOS Korea", journalist: "Kim Yong-woo" },
+      { outlet: "LCK Press Room", journalist: "Wolf" },
+      { outlet: "Korizon Esports", journalist: "Kevin Kim" },
     ];
   }
   return [
@@ -139,8 +206,12 @@ export function buildPressConference(params: {
   const { championship, match, winnerTeam, loserTeam, isGrandFinal, career } = params;
   const game = championship.game ?? "lol";
   const isIntl = isInternationalChamp(championship);
+  const isWorldCup = /copa do mundo|world cup|seleções|selecoes/i.test(championship.name ?? "");
+  const seedBase = `${championship.id}:${match.id}:${winnerTeam.id}:${loserTeam.id}`;
 
-  const winnerScore = Math.max(match.scoreA ?? 0, match.scoreB ?? 0) || (match.bestOf === 5 ? 3 : match.bestOf === 3 ? 2 : 1);
+  const winnerScore =
+    Math.max(match.scoreA ?? 0, match.scoreB ?? 0) ||
+    (match.bestOf === 5 ? 3 : match.bestOf === 3 ? 2 : 1);
   const loserScore = Math.min(match.scoreA ?? 0, match.scoreB ?? 0);
   const scoreStr = `${winnerScore}×${loserScore}`;
   const isSweep = loserScore === 0 && winnerScore >= 2;
@@ -166,10 +237,17 @@ export function buildPressConference(params: {
 
   const wCareer = career?.[winnerTeam.name.trim().toLowerCase()];
   const lCareer = career?.[loserTeam.name.trim().toLowerCase()];
-  const wElo = Math.round(effectiveRating(winnerTeam, wCareer?.rating));
-  const lElo = Math.round(effectiveRating(loserTeam, lCareer?.rating));
+  const wElo = Math.round(
+    effectiveRating(wCareer?.rating ?? 50, ensureRoster(winnerTeam), winnerTeam.synergy, winnerTeam.culture),
+  );
+  const lElo = Math.round(
+    effectiveRating(lCareer?.rating ?? 50, ensureRoster(loserTeam), loserTeam.synergy, loserTeam.culture),
+  );
   const wTitles = wCareer?.titles ?? 0;
   const lTitles = lCareer?.titles ?? 0;
+
+  const wExpectation = classifyExpectation(winnerTeam, wElo, wTitles, isIntl, isWorldCup);
+  const lExpectation = classifyExpectation(loserTeam, lElo, lTitles, isIntl, isWorldCup);
 
   const isUpset = lElo - wElo >= 5 || (lMech - wMech >= 4 && lTitles > wTitles);
   const isIntlChoke =
@@ -178,7 +256,18 @@ export function buildPressConference(params: {
       (lElo >= wElo && lMental < wMental) ||
       (lTitles >= 2 && loserScore <= 1));
 
-  // Identificar protagonistas do time vencedor
+  const seriesCause = detectSeriesCause({
+    mech: wMech - lMech,
+    iq: wIq - lIq,
+    clutch: wClutch - lClutch,
+    mental: wMental - lMental,
+    intl: wIntl - lIntl,
+    adapt: wAdapt - lAdapt,
+    isIntl,
+    isSilverScrapes,
+  });
+
+  // Protagonistas do time vencedor
   const mvpIgn = match.mvp?.playerName;
   const wMvpPlayer =
     wStarters.find((p) => p.ign.toLowerCase() === (mvpIgn ?? "").toLowerCase()) ??
@@ -190,24 +279,35 @@ export function buildPressConference(params: {
   const wIglPlayer =
     [...wStarters]
       .filter((p) => p.id !== wMvpPlayer?.id)
-      .sort((a, b) => b.resolved.gameIq + b.resolved.adaptability - (a.resolved.gameIq + a.resolved.adaptability))[0] ??
-    wStarters[0];
+      .sort(
+        (a, b) =>
+          b.resolved.gameIq + b.resolved.adaptability - (a.resolved.gameIq + a.resolved.adaptability),
+      )[0] ?? wStarters[0];
 
   const wClutchPlayer =
     [...wStarters]
       .filter((p) => p.id !== wMvpPlayer?.id && p.id !== wIglPlayer?.id)
-      .sort((a, b) => b.resolved.clutch + b.resolved.mentality - (a.resolved.clutch + a.resolved.mentality))[0] ??
+      .sort(
+        (a, b) =>
+          b.resolved.clutch + b.resolved.mentality - (a.resolved.clutch + a.resolved.mentality),
+      )[0] ??
     wStarters[1] ??
     wStarters[0];
 
   const wAggressivePlayer =
     [...wStarters]
-      .filter((p) => p.id !== wMvpPlayer?.id && p.id !== wIglPlayer?.id && p.id !== wClutchPlayer?.id)
-      .sort((a, b) => b.resolved.aggression + b.resolved.mechanics - (a.resolved.aggression + a.resolved.mechanics))[0] ??
+      .filter(
+        (p) =>
+          p.id !== wMvpPlayer?.id && p.id !== wIglPlayer?.id && p.id !== wClutchPlayer?.id,
+      )
+      .sort(
+        (a, b) =>
+          b.resolved.aggression + b.resolved.mechanics - (a.resolved.aggression + a.resolved.mechanics),
+      )[0] ??
     wStarters[2] ??
     wStarters[0];
 
-  // Identificar protagonistas do time eliminado / vice
+  // Protagonistas do time eliminado / vice
   const lChokePlayer =
     [...lStarters].sort((a, b) => {
       const aScore = isIntl
@@ -222,8 +322,10 @@ export function buildPressConference(params: {
   const lLoneStar =
     [...lStarters]
       .filter((p) => p.id !== lChokePlayer?.id)
-      .sort((a, b) => b.resolved.mechanics + b.resolved.consistency - (a.resolved.mechanics + a.resolved.consistency))[0] ??
-    lStarters[0];
+      .sort(
+        (a, b) =>
+          b.resolved.mechanics + b.resolved.consistency - (a.resolved.mechanics + a.resolved.consistency),
+      )[0] ?? lStarters[0];
 
   const lCaptain =
     [...lStarters]
@@ -234,7 +336,10 @@ export function buildPressConference(params: {
 
   const lTacticalPlayer =
     [...lStarters]
-      .filter((p) => p.id !== lChokePlayer?.id && p.id !== lLoneStar?.id && p.id !== lCaptain?.id)
+      .filter(
+        (p) =>
+          p.id !== lChokePlayer?.id && p.id !== lLoneStar?.id && p.id !== lCaptain?.id,
+      )
       .sort((a, b) => a.resolved.adaptability - b.resolved.adaptability)[0] ??
     lStarters[2] ??
     lStarters[0];
@@ -242,30 +347,33 @@ export function buildPressConference(params: {
   const loserCounterpartToMvp =
     lStarters.find((p) => p.role === wMvpPlayer?.role) ?? lChokePlayer;
 
-  const outlets = getOutletsForContext(game, championship.region, isIntl);
+  const outlets = getOutletsForContext(game, championship.region, isIntl, isWorldCup);
   const stageLabel = isGrandFinal
-    ? `Grande Final do ${championship.name} (${championship.season ?? " Edição Atual"})`
+    ? `Grande Final do ${championship.name} (${championship.season ?? "Edição Atual"})`
     : `${match.roundName ?? "Fase Eliminatória"} do ${championship.name}`;
 
   // Storyline & Headline
   let storylineBadge = isGrandFinal ? "COLETIVA PÓS-TÍTULO" : "COLETIVA DE ELIMINAÇÃO";
   let headline = "";
   let subheadline = "";
-  let tacticalSummary = "";
 
   if (isGrandFinal) {
-    if (isSweep) {
+    if (isWorldCup) {
+      storylineBadge = "CAMPEÃ MUNDIAL DE SELEÇÕES";
+      headline = `${winnerTeam.name} bate ${loserTeam.name} por ${scoreStr} e conquista a ${championship.name}!`;
+      subheadline = `Com atuação decisiva de ${wMvpPlayer?.ign ?? winnerTeam.tag} e comando de ${winnerTeam.coach ?? "sua comissão técnica"}, a seleção fecha o ano no topo do mundo.`;
+    } else if (isSweep) {
       storylineBadge = "DOMINÂNCIA ABSOLUTA NA FINAL";
       headline = `${winnerTeam.name} atropela ${loserTeam.name} por ${scoreStr} e ergue a taça do ${championship.name}`;
       subheadline = `Com atuação implacável de ${wMvpPlayer?.ign ?? winnerTeam.tag} e leitura macro superior (${wIq} vs ${lIq}), ${winnerTeam.name} não deu margem para reação.`;
     } else if (isSilverScrapes) {
       storylineBadge = "SILVER SCRAPES HISTÓRICO";
       headline = `No limite dos nervos! ${winnerTeam.name} vence ${loserTeam.name} por ${scoreStr} em final épica`;
-      subheadline = `Decidida nos detalhes do último mapa, a frieza sob pressão (Clutch ${wClutch} vs ${lClutch} e Mentalidade ${wMental} vs ${lMental}) coroou a campanha da ${winnerTeam.tag}.`;
+      subheadline = `Decidida nos detalhes do último mapa, a frieza sob pressão (Clutch ${wClutch} vs ${lClutch}) coroou a campanha da ${winnerTeam.tag}.`;
     } else if (isUpset) {
       storylineBadge = "ZEBRA HISTÓRICA PELO TÍTULO";
       headline = `Contra todas as projeções, ${winnerTeam.name} derruba a favorita ${loserTeam.name} (${scoreStr}) e é campeã!`;
-      subheadline = `Mesmo entrando com ELO inferior (${wElo} vs ${lElo}), a ${winnerTeam.tag} puniu o nervosismo adversário e escreveu seu nome no Hall da Fama.`;
+      subheadline = `Mesmo entrando como azarão (${wElo} vs ${lElo} de ELO), a ${winnerTeam.tag} puniu os erros adversários e levantou o troféu.`;
     } else {
       storylineBadge = isIntl ? "CONSAGRAÇÃO INTERNACIONAL" : "HEGEMONIA CONFIRMADA";
       headline = `${winnerTeam.name} supera ${loserTeam.name} por ${scoreStr} e conquista o ${championship.name}`;
@@ -273,27 +381,34 @@ export function buildPressConference(params: {
     }
   } else {
     if (isIntlChoke) {
-      storylineBadge = "CHOQUE DE REALIDADE INTERNACIONAL";
-      headline = `Fim da linha precoce: ${loserTeam.name} sente o peso do palco internacional e cai para ${winnerTeam.name} (${scoreStr})`;
-      subheadline = `Apesar do talento mecânico (${lMech}), a baixa bagagem internacional (${lIntl} vs ${wIntl}) e a queda mental nos momentos críticos custaram a sobrevivência no ${championship.name}.`;
+      storylineBadge = "CHOQUE NO PALCO INTERNACIONAL";
+      headline = `${loserTeam.name} sente o peso da série e cai para ${winnerTeam.name} (${scoreStr})`;
+      subheadline = `A diferença de experiência internacional (${lIntl} vs ${wIntl}) e a queda de controle sob pressão custaram a sequência no ${championship.name}.`;
     } else if (isUpset) {
       storylineBadge = "GIANT SLAYER NOS PLAYOFFS";
-      headline = `Choque no ${championship.name}: ${winnerTeam.name} elimina ${loserTeam.name} por ${scoreStr}!`;
-      subheadline = `A favorita ${loserTeam.tag} (ELO ${lElo}) não conseguiu responder à adaptação tática (${wAdapt}) e ao ritmo agressivo imposto por ${wMvpPlayer?.ign ?? winnerTeam.tag}.`;
+      headline = `Surpresa no ${championship.name}: ${winnerTeam.name} elimina ${loserTeam.name} por ${scoreStr}!`;
+      subheadline = `Favorita no papel (ELO ${lElo}), a ${loserTeam.tag} não conseguiu conter a adaptação (${wAdapt}) e o ímpeto de ${wMvpPlayer?.ign ?? winnerTeam.tag}.`;
     } else if (isSweep) {
       storylineBadge = "ATROPELO ELIMINATÓRIO";
-      headline = `Sem resposta tática, ${loserTeam.name} sofre ${scoreStr} da ${winnerTeam.name} e dá adeus ao ${championship.name}`;
-      subheadline = `Do draft à execução de mapa, a ${winnerTeam.tag} dominou todas as rotas e encerrou a campanha da ${loserTeam.tag} de forma categórica.`;
+      headline = `Sem resposta tática, ${loserTeam.name} sofre ${scoreStr} da ${winnerTeam.name} e deixa o ${championship.name}`;
+      subheadline = `Do draft à execução de mapa, a ${winnerTeam.tag} dominou o ritmo da série do início ao fim.`;
     } else {
       storylineBadge = "DRAMA DE ELIMINAÇÃO";
-      headline = `${winnerTeam.name} elimina ${loserTeam.name} por ${scoreStr} e avança no ${championship.name}`;
-      subheadline = `Em série tensa na ${match.roundName ?? "chave eliminatória"}, a consistência de ${wMvpPlayer?.ign ?? winnerTeam.tag} pesou mais que as tentativas de reação de ${lLoneStar?.ign ?? loserTeam.tag}.`;
+      headline = `${winnerTeam.name} supera ${loserTeam.name} por ${scoreStr} e avança no ${championship.name}`;
+      subheadline = `Na ${match.roundName ?? "chave eliminatória"}, a consistência de ${wMvpPlayer?.ign ?? winnerTeam.tag} pesou nos momentos decisivos.`;
     }
   }
 
-  tacticalSummary = isIntl
-    ? `Radiografia da Série (${scoreStr}): No palco internacional do ${championship.name}, a diferença de Bagagem Internacional (${winnerTeam.tag} ${wIntl} vs ${loserTeam.tag} ${lIntl}) e Blindagem Mental (${wMental} vs ${lMental}) foi determinante. Enquanto ${wMvpPlayer?.ign} (${ROLE_PT[wMvpPlayer?.role ?? "mid"]}) ditou o ritmo com ${wMvpPlayer?.resolved.mechanics} de Mecânica e ${wMvpPlayer?.resolved.clutch} de Clutch, o lado da ${loserTeam.tag} sofreu com hesitações críticas sob pressão — especialmente na rota de ${lChokePlayer?.ign} (Exp. Int. ${lChokePlayer?.resolved.intlExperience}, Mentalidade ${lChokePlayer?.resolved.mentality}).`
-    : `Radiografia da Série (${scoreStr}): A vitória da ${winnerTeam.name} passou diretamente pelo controle de objetivos e leitura de mapa (QI de Jogo médio ${wIq} vs ${lIq}) somado ao poder de decisão no late-game (Clutch ${wClutch} vs ${lClutch}). ${wMvpPlayer?.ign} venceu o duelo direto contra ${loserCounterpartToMvp?.ign} e abriu espaço para ${wIglPlayer?.ign} comandar as rotações, enquanto ${loserTeam.name} viu sua estrutura mental (${lMental}) ceder após perder o controle do meio de jogo.`;
+  const causeTextMap: Record<SeriesCause, string> = {
+    mechanics_gap: `a superioridade mecânica nas rotas (${wMech} vs ${lMech}) abriu vantagens logo no early game`,
+    macro_iq: `a leitura de mapa e controle de objetivos (${wIq} vs ${lIq} de QI coletivo) sufocou qualquer tentativa de resposta`,
+    clutch_mentality: `a frieza nos momentos decisivos (Clutch ${wClutch} vs ${lClutch} e Mentalidade ${wMental} vs ${lMental}) definiu os mapas apertados`,
+    intl_experience: `a bagagem internacional (${wIntl} vs ${lIntl}) pesou na hora de converter vantagens sob pressão de palco`,
+    adapt_draft: `a velocidade de adaptação entre mapas (${wAdapt} vs ${lAdapt}) desmontou o plano de draft adversário`,
+    balanced: `os detalhes de execução coletiva e tempo de resposta em lutas por objetivo desequilibraram uma série parelha`,
+  };
+
+  const tacticalSummary = `Radiografia da Série (${scoreStr}): No duelo pelo ${stageLabel}, ${causeTextMap[seriesCause]}. ${wMvpPlayer?.ign} (${ROLE_PT[wMvpPlayer?.role ?? "mid"]}) liderou o ritmo de ${winnerTeam.tag} contra ${loserCounterpartToMvp?.ign}, enquanto ${loserTeam.tag} dependeu demais de lampejos individuais de ${lLoneStar?.ign}.`;
 
   const keyFactors: PressFactorComparison[] = [
     {
@@ -336,8 +451,65 @@ export function buildPressConference(params: {
   ];
 
   // =========================================================================
-  // PERGUNTAS DO TIME VENCEDOR (Pós-Título ou Pós-Classificação)
+  // RESPOSTAS CONTEXTUAIS DO TIME VENCEDOR
   // =========================================================================
+  const wMvpContextClosing = isWorldCup
+    ? isGrandFinal
+      ? `Conquistar a ${championship.name} defendendo nosso país depois de reunir jogadores de ligas diferentes é algo que vamos lembrar pra sempre.`
+      : `Representar nossa bandeira contra ${loserTeam.name} exige entrega máxima em cada luta.`
+    : isGrandFinal
+      ? wExpectation === "underdog"
+        ? `Quase ninguém colocava a ${winnerTeam.name} como postulante ao título no começo, mas provamos dentro do servidor que merecemos esse troféu do ${championship.name}.`
+        : `Erguer o troféu do ${championship.name} por ${scoreStr} confirma o nível de cobrança que temos todos os dias nos treinos.`
+      : wExpectation === "underdog"
+        ? `Sabíamos que entrávamos como azarões contra a ${loserTeam.name}, então cada mapa ganho foi comemorado com pé no chão. Agora é seguir sonhando jogo a jogo.`
+        : `Passar pela ${loserTeam.name} por ${scoreStr} nos mantém vivos na briga, mas o objetivo aqui ainda não terminou.`;
+
+  const wMvpAnswer = pickVariant(seedBase, "w-mvp", [
+    `"Desde os treinos desta semana percebemos que a ${loserTeam.name} jogava muito em torno de ${loserCounterpartToMvp?.ign} e ${lLoneStar?.ign}. Quando senti no primeiro mapa que conseguia punir as janelas de ${loserCounterpartToMvp?.ign}, chamei o ${wIglPlayer?.ign} para acelerar o meu lado. A partir daí controlamos o ritmo da série. ${wMvpContextClosing}"`,
+    `"Não foi um jogo simples contra a ${loserTeam.name}, principalmente porque ${loserCounterpartToMvp?.ign} tentou contestar bastante as primeiras ondas. Mas hoje minha leitura de troca encaixou muito bem e consegui transformar pequenas vantagens de rota em pressão para o time todo. ${wMvpContextClosing}"`,
+    `"Quando entramos no servidor para esse ${scoreStr}, o combinado era não deixar ${lLoneStar?.ign} confortável. A gente respeita muito o histórico da ${loserTeam.tag}, mas hoje fomos mais precisos nas lutas de objetivo e isso fez a diferença. ${wMvpContextClosing}"`,
+  ]);
+
+  const wIglAnswerByCause: Record<SeriesCause, string[]> = {
+    mechanics_gap: [
+      `"Hoje nossos laners ganharam praticamente todos os duelos de 1v1 e 2v2 cedo, o que facilitou muito meu trabalho de shotcaller. Com pressão nas três rotas, eu e o ${wMvpPlayer?.ign} conseguíamos invadir a selva adversária sem risco e negar visão da ${loserTeam.name} antes mesmo dos objetivos nascerem."`,
+    ],
+    macro_iq: [
+      `"O diferencial contra a ${loserTeam.name} foi disciplina de mapa. Mesmo quando eles tentaram forçar lutas fora de hora com ${lLoneStar?.ign}, nós mantivemos o controle das ondas laterais e só lutamos nos nossos timers de visão. Isso foi estrangulando o ouro deles até o ${scoreStr}."`,
+    ],
+    clutch_mentality: [
+      `"Em séries assim a conversa no voice muda completamente. Quando a ${loserTeam.name} apertou o jogo, eu pedi pra todo mundo simplificar as chamadas: focar um alvo por vez, contar feitiços e esperar o erro de posicionamento de ${lChokePlayer?.ign}. A calma do elenco nos momentos críticos decidiu a série."`,
+    ],
+    intl_experience: [
+      `"Em torneio internacional o ritmo de castigo é outro: você não pode dar um passo em falso na visão. Usamos nossa experiência para ditar o tempo do mapa e forçar ${lChokePlayer?.ign} a tomar decisões desconfortáveis sob pressão."`,
+    ],
+    adapt_draft: [
+      `"Entre os mapas a comissão técnica leu muito bem o que a ${loserTeam.name} queria priorizar no draft. Ajustamos a ordem de picks para dar resposta confortável pro ${wMvpPlayer?.ign} e tiramos as escolhas de conforto deles — isso mudou a cara da série."`,
+    ],
+    balanced: [
+      `"Foi um xadrez muito equilibrado contra a ${loserTeam.name}. Decidimos nos detalhes de preparação de objetivo e comunicação limpa nas teamfights. Quando ${wMvpPlayer?.ign} e ${wClutchPlayer?.ign} alinharam os engages, conseguimos fechar os jogos."`,
+    ],
+  };
+
+  const wCoachName = winnerTeam.coach
+    ? `${winnerTeam.coach} (${winnerTeam.tag})`
+    : `Head Coach (${winnerTeam.tag})`;
+  const lCoachName = loserTeam.coach
+    ? `${loserTeam.coach} (${loserTeam.tag})`
+    : `Head Coach (${loserTeam.tag})`;
+
+  const wCoachAnswer = isWorldCup
+    ? `"Montar uma seleção com jogadores que atuam em clubes e ligas diferentes em pouco tempo é sempre um desafio, mas esse grupo comprou a ideia desde o primeiro treino. Vencer a ${loserTeam.name} por ${scoreStr} mostra a força da nossa escola nacional e a entrega de atletas como ${wMvpPlayer?.ign} e ${wIglPlayer?.ign}."`
+    : pickVariant(seedBase, "w-coach", [
+        `"O plano da comissão era tirar ${lLoneStar?.ign} da zona de conforto e explorar as transições no lado de ${lChokePlayer?.ign}. Os jogadores executaram com muita maturidade. ${
+          isGrandFinal
+            ? `Fechar o ${championship.name} com esse ${scoreStr} coroa meses de ajustes.`
+            : `Agora é recuperar a energia e corrigir os erros de início de jogo para o próximo desafio.`
+        }"`,
+        `"Estou satisfeito principalmente com a frieza do grupo nos momentos em que o mapa parecia travado. Contra um elenco como o da ${loserTeam.name}, qualquer hesitação custa caro, e hoje soubemos responder rápido tanto no draft quanto dentro de jogo."`,
+      ]);
+
   const winnerQuestions: PressQuestion[] = [
     {
       id: "w-1",
@@ -350,12 +522,8 @@ export function buildPressConference(params: {
         ? `MVP · KDA ${match.mvp.kda} · Rating ${match.mvp.rating}`
         : `MEC ${wMvpPlayer?.resolved.mechanics} · CLU ${wMvpPlayer?.resolved.clutch}`,
       speakerTone: "gold",
-      question: `${wMvpPlayer?.ign}, você foi o grande nome desse ${scoreStr} contra a ${loserTeam.name} na ${stageLabel}${match.mvp ? `, fechando com KDA ${match.mvp.kda} e rating ${match.mvp.rating}` : ""}. Onde você sentiu que quebrou a resistência de ${loserCounterpartToMvp?.ign} no duelo direto?`,
-      answer: `"Sinceramente, desde a preparação a gente sabia que a ${loserTeam.name} dependia muito de como ${loserCounterpartToMvp?.ign} e ${lLoneStar?.ign} iam ditar os primeiros 10 minutos. Quando entrei no servidor hoje, senti que ${loserCounterpartToMvp?.ign} estava jogando mais recuado do que o normal — provavelmente sentindo o peso da série. Meu foco foi forçar trocas no limite da mecânica desde a fase de rotas. A partir do momento em que abrimos vantagem de tempo e ${wIglPlayer?.ign} conectou comigo nas rotações, o mapa deles desmoronou. ${
-        isGrandFinal
-          ? `Levantar esse troféu do ${championship.name} pela ${winnerTeam.name} fechando por ${scoreStr} é a recompensa por cada treino pesado que fizemos.`
-          : `Eliminar um adversário do calibre da ${loserTeam.name} por ${scoreStr} mostra que estamos prontos pra buscar a taça.`
-      }"`,
+      question: `${wMvpPlayer?.ign}, você comandou esse ${scoreStr} contra a ${loserTeam.name} na ${stageLabel}${match.mvp ? ` (KDA ${match.mvp.kda}, rating ${match.mvp.rating})` : ""}. Qual foi a chave para superar ${loserCounterpartToMvp?.ign} hoje?`,
+      answer: wMvpAnswer,
       statCallout: `${wMvpPlayer?.ign}: Mecânica ${wMvpPlayer?.resolved.mechanics} · Clutch ${wMvpPlayer?.resolved.clutch} vs ${loserCounterpartToMvp?.ign} (Mentalidade ${loserCounterpartToMvp?.resolved.mentality})`,
     },
     {
@@ -367,9 +535,9 @@ export function buildPressConference(params: {
       speakerRole: `${ROLE_PT[wIglPlayer?.role ?? "jungle"]} · Shotcaller`,
       speakerBadge: `QI DE JOGO ${wIglPlayer?.resolved.gameIq} · ADAPT ${wIglPlayer?.resolved.adaptability}`,
       speakerTone: "emerald",
-      question: `Vocês neutralizaram completamente as principais condições de vitória da ${loserTeam.name}. Como funcionou a comunicação interna para adaptar o macro entre os mapas e punir as rotações deles?`,
-      answer: `"O segredo hoje não foi só mão, foi leitura de mapa. A ${loserTeam.name} tem jogadores mecanicamente fortes como ${lLoneStar?.ign} (${lLoneStar?.resolved.mechanics} de Mecânica), mas percebemos na análise que quando eles são forçados a tomar decisões rápidas fora do script, a adaptação deles (${lAdapt} de média) cai bastante. No meio da série, falei pro pessoal: 'Não deem luta franca onde eles querem; puxem as ondas laterais e forcem ${lChokePlayer?.ign} a dar facecheck nos objetivos'. Funcionou exatamente como desenhamos. Tivemos frieza para controlar visão e estrangular o ouro até fechar o ${scoreStr}."`,
-      statCallout: `QI de Jogo Coletivo: ${winnerTeam.tag} ${wIq} vs ${loserTeam.tag} ${lIq} · Adaptação: ${wAdapt} vs ${lAdapt}`,
+      question: `Como funcionou a leitura dentro do jogo para neutralizar os pontos fortes da ${loserTeam.name} ao longo desse ${scoreStr}?`,
+      answer: pickVariant(seedBase, "w-igl", wIglAnswerByCause[seriesCause]),
+      statCallout: `QI Coletivo: ${winnerTeam.tag} ${wIq} vs ${loserTeam.tag} ${lIq} · Adaptação: ${wAdapt} vs ${lAdapt}`,
     },
     {
       id: "w-3",
@@ -381,54 +549,109 @@ export function buildPressConference(params: {
       speakerBadge: `CLUTCH ${wClutchPlayer?.resolved.clutch} · MENTAL ${wClutchPlayer?.resolved.mentality}`,
       speakerTone: "blue",
       question: isSilverScrapes
-        ? `A série foi até o último mapa (${scoreStr}) com a arena inteira em tensão máxima. Como o elenco manteve o pulso firme quando a ${loserTeam.name} empatou a série?`
-        : `Mesmo nos momentos em que a ${loserTeam.name} tentou acelerar o jogo com ${lLoneStar?.ign}, vocês não perderam a compostura. O quanto o fator mental pesou hoje?`,
+        ? `A série foi até o último mapa (${scoreStr}) sob tensão máxima. O que manteve a ${winnerTeam.name} calma na hora da decisão?`
+        : `Mesmo quando a ${loserTeam.name} tentou acelerar com ${lLoneStar?.ign}, vocês mantiveram o controle. Como o grupo lidou com a pressão?`,
       answer: isSilverScrapes
-        ? `"Jogo 5 separa quem treina só mecânica de quem tem cabeça pra ser campeão. Quando fomos pro mapa decisivo no ${scoreStr.slice(0, 1)}×${loserScore}, olhei pro lado e vi todo mundo calmo, revisando os timers de flash e preparação de objetivo, enquanto do lado da ${loserTeam.tag} dava pra notar nas chamadas deles no início do jogo que a pressão estava pesando. Naquela última luta, com tudo em jogo, confiei 100% na chamada do ${wIglPlayer?.ign} e na proteção do time. É pra esse tipo de momento que a gente vive."`
-        : `"Em série eliminatória Bo${match.bestOf}, o primeiro time que tilta perde. A gente sabia que se segurássemos o ímpeto inicial de ${lLoneStar?.ign}, a frustração ia bater do lado deles. Nosso índice de consistência e mentalidade (${wMental} de média) nos permitiu absorver a pressão sem entregar abates gratuitos. Quando vencemos a luta decisiva pelo objetivo principal no mapa ${winnerScore}, sentimos que o psicológico da ${loserTeam.name} já tinha quebrado."`,
-      statCallout: `Poder de Decisão (Clutch): ${winnerTeam.tag} ${wClutch} vs ${loserTeam.tag} ${lClutch} · Mentalidade: ${wMental} vs ${lMental}`,
+        ? pickVariant(seedBase, "w-clutch-ss", [
+            `"Quando empataram e fomos para o mapa decisivo, ninguém apontou dedo no voice. Revisamos onde estávamos perdendo tempo de visão e confiamos na chamada do ${wIglPlayer?.ign}. Na luta final, estava todo mundo na mesma página."`,
+            `"Jogo decisivo se ganha na cabeça antes da mecânica. Olhei pro lado e vi o elenco tranquilo, ajustando os planos sem pânico. Sabíamos que se segurássemos o início de ${lLoneStar?.ign}, a nossa janela ia aparecer."`,
+          ])
+        : pickVariant(seedBase, "w-clutch-reg", [
+            `"Em série eliminatória, quem perde a paciência primeiro entrega o mapa. Mantivemos a calma mesmo nos momentos em que a ${loserTeam.name} pressionou, e quando vencemos a primeira luta grande pelo objetivo, o ritmo passou a ser nosso."`,
+            `"A preparação mental fez diferença hoje. Não nos desesperamos quando eles conseguiram abates cedo — continuamos farmando, protegendo visão e esperando nossa composição escalar para punir os avanços deles."`,
+          ]),
+      statCallout: `Clutch: ${winnerTeam.tag} ${wClutch} vs ${loserTeam.tag} ${lClutch} · Mentalidade: ${wMental} vs ${lMental}`,
     },
     {
       id: "w-4",
       outlet: outlets[3].outlet,
       journalist: outlets[3].journalist,
-      topicTag: isIntl ? "IMPACTO INTERNACIONAL" : "AGRESSIVIDADE & RITMO",
+      topicTag: isWorldCup ? "ORGULHO NACIONAL" : isIntl ? "IMPACTO INTERNACIONAL" : "RITMO & IDENTIDADE",
       speakerName: `${wAggressivePlayer?.ign ?? winnerTeam.tag}`,
       speakerRole: `${ROLE_PT[wAggressivePlayer?.role ?? "top"]} · ${winnerTeam.name}`,
       speakerBadge: `AGRESSIVIDADE ${wAggressivePlayer?.resolved.aggression} · EXP INT ${wAggressivePlayer?.resolved.intlExperience}`,
       speakerTone: "purple",
-      question: isIntl
-        ? `Bater a ${loserTeam.name} (${loserTeam.region ?? "rival internacional"}) por ${scoreStr} no ${championship.name} manda um recado direto para o resto do mundo. Como você avalia o peso dessa vitória para a região ${winnerTeam.region ?? "de vocês"}?`
-        : `Muitos analistas questionavam se o estilo agressivo da ${winnerTeam.name} funcionaria contra a estrutura da ${loserTeam.name}. Essa vitória por ${scoreStr} cala os críticos?`,
-      answer: isIntl
-        ? `"Muita gente olha só pro nome da região ou pros pontos antigos antes do torneio começar, mas dentro do servidor o que conta é o momento e quem tem coragem de impor seu jogo. Viemos pro ${championship.name} sem medo de ninguém. Sabíamos que a ${loserTeam.name} sentia desconforto quando tirada da zona de conforto cedo. Jogamos no nosso ritmo, punimos cada erro de posicionamento de ${lChokePlayer?.ign} e provamos que a ${winnerTeam.region ?? winnerTeam.tag} veio pra brigar no topo."`
-        : `"Falar de fora é fácil, difícil é aguentar a pressão que colocamos no mapa durante ${winnerScore + loserScore} jogos seguidos. Nossa agressividade não é moeda pro alto — é calculada em cima de tempo de resposta. Hoje deixamos claro que quando ${wMvpPlayer?.ign} e eu temos prioridade nas rotas, nenhum time da liga consegue respirar contra a ${winnerTeam.name}."`,
+      question: isWorldCup
+        ? `Qual é a sensação de vencer a ${loserTeam.name} por ${scoreStr} defendendo a camisa do seu país na ${championship.name}?`
+        : isIntl
+          ? `Vencer a ${loserTeam.name} (${loserTeam.region ?? "rival internacional"}) por ${scoreStr} no ${championship.name} muda o respeito pela ${winnerTeam.region ?? "região de vocês"}?`
+          : `O estilo agressivo da ${winnerTeam.name} prevaleceu nesse ${scoreStr}. Você sente que a equipe encontrou sua melhor identidade?`,
+      answer: isWorldCup
+        ? `"É diferente de qualquer campeonato de clubes. Aqui não tem rivalidade de torcida local — jogamos por uma bandeira só. Enfrentar uma seleção forte como a ${loserTeam.name} e sair com esse ${scoreStr} mostra a força dos nossos jogadores espalhados pelo mundo."`
+        : isIntl
+          ? wExpectation === "underdog"
+            ? `"A gente sabe que muita gente de fora subestima a ${winnerTeam.region ?? "nossa liga"} antes do torneio começar. Entramos no servidor sem nada a perder, impondo nosso ritmo contra a ${loserTeam.name}, e mostramos que dá sim para competir de igual para igual."`
+            : `"No palco internacional não basta ter nome ou histórico: tem que provar a cada série. Respeitamos a ${loserTeam.name}, mas impusemos nossa leitura desde cedo e confirmamos o favoritismo da ${winnerTeam.region ?? winnerTeam.tag}."`
+          : `"Nossa força está em ditar o ritmo sem medo de errar. Quando eu e o ${wMvpPlayer?.ign} conseguimos empurrar as rotas com apoio do ${wIglPlayer?.ign}, fica muito difícil para qualquer adversário da liga segurar nossa pressão."`,
       statCallout: isIntl
         ? `Bagagem Internacional: ${winnerTeam.tag} ${wIntl} vs ${loserTeam.tag} ${lIntl} · Região: ${winnerTeam.region ?? "Local"} vs ${loserTeam.region ?? "Local"}`
-        : `Agressividade Controlada: ${wAggressivePlayer?.ign} (${wAggressivePlayer?.resolved.aggression}) · Consistência (${wAggressivePlayer?.resolved.consistency})`,
+        : `Agressividade: ${wAggressivePlayer?.ign} (${wAggressivePlayer?.resolved.aggression}) · Consistência (${wAggressivePlayer?.resolved.consistency})`,
     },
     {
       id: "w-5",
       outlet: outlets[4].outlet,
       journalist: outlets[4].journalist,
       topicTag: "COMISSÃO TÉCNICA",
-      speakerName: `Head Coach (${winnerTeam.tag})`,
+      speakerName: wCoachName,
       speakerRole: `Diretor Técnico · ${winnerTeam.name}`,
       speakerBadge: `ELO ${wElo} · ${wTitles + (isGrandFinal ? 1 : 0)} TÍTULOS`,
       speakerTone: "gold",
       question: isGrandFinal
-        ? `Coach, título conquistado com um ${scoreStr} sobre a ${loserTeam.name}. Qual foi o pilar invisível nos bastidores que transformou esse elenco no campeão do ${championship.name}?`
-        : `Coach, classificação garantida em cima da ${loserTeam.name} (${scoreStr}). O que mais te agradou na execução do plano de jogo hoje e o que ainda precisa de ajuste?`,
-      answer: isGrandFinal
-        ? `"O que construiu esse título foi a evolução contínua dos jogadores ao longo de todo o split. Não dependemos de um único carregador: hoje ${wMvpPlayer?.ign} brilhou intensamente, mas a preparação de draft que fizemos para anular ${lLoneStar?.ign} e explorar a rota de ${lChokePlayer?.ign} foi executada à perfeição pelos cinco titulares. Subimos nosso patamar competitivo para ${wElo} de ELO e esse troféu do ${championship.name} consolida um trabalho de longo prazo da organização."`
-        : `"Estou muito orgulhoso da disciplina tática do grupo. Vencer a ${loserTeam.name} por ${scoreStr} exige preparo mental e leitura de draft afiada, porque eles têm talentos como ${lLoneStar?.ign} que podem virar um jogo sozinhos se tiverem espaço. Cumprimos nosso plano à risca, mas os pés continuam no chão: vamos revisar os pequenos erros de transição que cometemos no início das partidas para chegarmos ainda mais fortes na próxima rodada."`,
+        ? `Coach, título conquistado com ${scoreStr} sobre a ${loserTeam.name}. O que definiu esse elenco no ${championship.name}?`
+        : `Coach, vitória por ${scoreStr} diante da ${loserTeam.name}. Qual foi a maior virtude tática do grupo hoje?`,
+      answer: wCoachAnswer,
       statCallout: `Balanço Técnico: ${winnerTeam.name} (ELO ${wElo}) supera ${loserTeam.name} (ELO ${lElo}) por ${scoreStr}`,
     },
   ];
 
   // =========================================================================
-  // PERGUNTAS DO TIME ELIMINADO / VICE-CAMPEÃO (Pós-Eliminação)
+  // RESPOSTAS REALISTAS DO TIME ELIMINADO / VICE (RESPEITANDO EXPECTATIVA E REGIÃO!)
   // =========================================================================
+  let lCaptainAnswer = "";
+  if (isWorldCup) {
+    lCaptainAnswer = isGrandFinal
+      ? `"Ficar com o vice da Copa do Mundo por ${scoreStr} contra a ${winnerTeam.name} dói porque estávamos a um passo de dar esse título inédito para o nosso país. Mesmo com pouco tempo de treino juntos, o grupo se entregou ao máximo, mas hoje eles foram mais precisos nas lutas decisivas."`
+      : `"Cair na ${match.roundName ?? "fase eliminatória"} contra a ${winnerTeam.name} frustra porque queríamos levar nossa seleção ainda mais longe. Tivemos bons momentos, mas quando ${wMvpPlayer?.ign} e ${wIglPlayer?.ign} aceleraram o mapa, nos faltou entrosamento para responder na mesma velocidade."`;
+  } else if (isIntl) {
+    if (lExpectation === "underdog") {
+      lCaptainAnswer = isGrandFinal
+        ? `"Chegar a uma final internacional representando a ${loserTeam.region ?? "nossa região"} já foi algo enorme, mas perder por ${scoreStr} mostra onde ainda precisamos evoluir contra o topo do mundo. Não viemos com obrigação de título, mas queríamos competir até o último segundo."`
+        : pickVariant(seedBase, "l-cap-intl-underdog", [
+            `"Sabíamos desde o início que enfrentar times como a ${winnerTeam.name} seria um teste duríssimo para a ${loserTeam.region ?? "nossa região"}. Nosso objetivo realista era passar de fase e provar evolução competitiva. Saímos frustrados por alguns erros bobos no meio de jogo, mas essa experiência contra ${wMvpPlayer?.ign} vale muito para quando voltarmos para casa."`,
+            `"Não dá para mentir: existe uma diferença de ritmo entre a nossa liga local e o nível que a ${winnerTeam.name} joga aqui no ${championship.name}. Lutamos com as armas que tínhamos, tentamos incomodar, mas a leitura de mapa deles (${wIq} de média) puniu cada passo nosso fora de posição."`,
+          ]);
+    } else if (lExpectation === "regional_power") {
+      lCaptainAnswer = isGrandFinal
+        ? `"Bater na trave na final por ${scoreStr} contra a ${winnerTeam.name} é duro. Provamos que podemos bater de frente com qualquer região, mas nos detalhes de decisão eles foram superiores."`
+        : `"Viemos para o ${championship.name} acreditando que tínhamos elenco para brigar por semifinais ou mais, então cair agora por ${scoreStr} fica abaixo do que esperávamos. Faltou transformar nossa força mecânica em controle de mapa contra ${wIglPlayer?.ign}."`;
+    } else {
+      // major_contender
+      lCaptainAnswer = isGrandFinal
+        ? `"Quando você representa um projeto feito para vencer o ${championship.name}, terminar com o vice por ${scoreStr} é uma decepção enorme. Trabalhamos para levantar essa taça e hoje falhamos nos momentos-chave diante da ${winnerTeam.name}."`
+        : `"Para um elenco com a nossa ambição e histórico, cair antes da final por ${scoreStr} é inaceitável. Entramos como favoritos contra a ${winnerTeam.name}, mas subestimamos o ritmo deles e perdemos o controle da série."`;
+    }
+  } else {
+    // Liga Local
+    if (lExpectation === "underdog") {
+      lCaptainAnswer = isGrandFinal
+        ? `"Muita gente nem esperava ver a ${loserTeam.name} na final da liga, então chegar até aqui e lutar contra a ${winnerTeam.name} já mostra a evolução do elenco. Claro que perder por ${scoreStr} dói, mas saímos de cabeça erguida."`
+        : `"Sabíamos das nossas limitações nesta temporada contra elencos mais caros como o da ${winnerTeam.name}. Chegar aos playoffs foi um passo importante, mas hoje a diferença de execução ficou clara no ${scoreStr}."`;
+    } else {
+      lCaptainAnswer = isGrandFinal
+        ? `"Trabalhamos o split inteiro dentro da nossa liga com foco total nesse título, e perder a final por ${scoreStr} para a ${winnerTeam.name} é um golpe duro. Faltou calma minha e do time quando ${wMvpPlayer?.ign} abriu vantagem."`
+        : `"Para os padrões que a ${loserTeam.name} estabeleceu nesta liga, ser eliminado aqui por ${scoreStr} está abaixo da meta. Tivemos o plano na mão, mas ficamos reativos demais quando a ${winnerTeam.name} acelerou o meio de jogo."`;
+    }
+  }
+
+  const lCoachAnswer = isWorldCup
+    ? `"Assumo total responsabilidade pelas escolhas táticas desta série contra a ${winnerTeam.name}. Em torneio curto de seleções, pequenas falhas de comunicação pesam dobrado. Mesmo com a eliminação por ${scoreStr}, os jogadores honraram nosso país e voltam para seus clubes ainda mais experientes."`
+    : isIntl && lExpectation === "underdog"
+      ? `"Precisamos ser honestos na análise: competir no ${championship.name} contra elencos com ELO ${wElo} e mais bagagem internacional (${wIntl} vs ${lIntl}) expõe qualquer falha de macro que passa batido na nossa região. Voltamos para a ${loserTeam.region ?? "nossa liga"} com lições claras do que precisa mudar para elevarmos o nível regional."`
+      : pickVariant(seedBase, "l-coach", [
+          `"A responsabilidade pela preparação tática e mental diante da ${winnerTeam.name} começa em mim. Hoje ficou claro que talento mecânico (${lMech}) sem estabilidade emocional (${lMental}) e leitura de adaptação (${lAdapt}) não sustenta série eliminatória. Vamos revisar tudo na pausa."`,
+          `"Saímos com o ${scoreStr} sabendo exatamente onde perdemos a série: não conseguimos responder quando a ${winnerTeam.name} mudou o foco do draft. É um resultado duro para a torcida da ${loserTeam.name}, mas vai servir de choque para a próxima etapa."`,
+        ]);
+
   const loserQuestions: PressQuestion[] = [
     {
       id: "l-1",
@@ -439,15 +662,13 @@ export function buildPressConference(params: {
       speakerRole: `${ROLE_PT[lCaptain?.role ?? "support"]} · Capitão da ${loserTeam.name}`,
       speakerBadge: `IDADE ${lCaptain?.age ?? 23} · QI ${lCaptain?.resolved.gameIq}`,
       speakerTone: "blood",
-      question: `${lCaptain?.ign}, uma derrota dura por ${scoreStr} contra a ${winnerTeam.name} que ${
+      question: `${lCaptain?.ign}, uma derrota por ${scoreStr} contra a ${winnerTeam.name} que ${
         isGrandFinal
-          ? `deixa a ${loserTeam.name} com o vice-campeonato do ${championship.name}`
-          : `encerra a caminhada da ${loserTeam.name} no ${championship.name}`
-      }. Em que momento exato da série você sentiu que o controle escapou das mãos de vocês?`,
-      answer: `"É difícil digerir agora porque trabalhamos o split inteiro para ${
-        isGrandFinal ? "erguer essa taça" : "chegar na final"
-      }, e cair por ${scoreStr} dói demais. Sendo totalmente transparente: nós perdemos a série na nossa incapacidade de conter o ritmo que ${wMvpPlayer?.ign} e ${wIglPlayer?.ign} impuseram entre os 12 e 20 minutos. Nós tínhamos o plano no papel, mas dentro do jogo ficamos reativos demais. Quando você dá iniciativa de graça para um time com ${wIq} de leitura de mapa como a ${winnerTeam.name}, eles não perdoam. Faltou voz ativa minha e calma coletiva para estancar o sangramento antes que virasse bola de neve."`,
-      statCallout: `Déficit de Controle: ${loserTeam.tag} cedeu o ritmo de meio de jogo diante de ${wMvpPlayer?.ign}`,
+          ? `deixa a ${loserTeam.name} com o vice do ${championship.name}`
+          : `encerra a participação da ${loserTeam.name} no ${championship.name}`
+      }. Qual foi a leitura do elenco sobre o que faltou hoje?`,
+      answer: lCaptainAnswer,
+      statCallout: `Expectativa (${lExpectation === "major_contender" ? "Candidato ao Título" : lExpectation === "regional_power" ? "Competitivo" : "Desafiante"}): ${loserTeam.tag} cedeu controle diante de ${wMvpPlayer?.ign}`,
     },
     {
       id: "l-2",
@@ -461,68 +682,67 @@ export function buildPressConference(params: {
         : `MENTALIDADE ${lChokePlayer?.resolved.mentality} · CLUTCH ${lChokePlayer?.resolved.clutch}`,
       speakerTone: "blood",
       question: isIntl
-        ? `${lChokePlayer?.ign}, regionalmente você costuma jogar com muita confiança (${lChokePlayer?.resolved.mechanics} de Mecânica), mas hoje no palco internacional do ${championship.name} vimos hesitações incomuns nas trocas contra a ${winnerTeam.name}. O peso do torneio internacional travou o seu jogo?`
-        : `${lChokePlayer?.ign}, a ${winnerTeam.name} focou muita pressão na sua rota e vimos erros de execução nos momentos mais críticos da série. Como você explica essa queda de rendimento sob pressão hoje?`,
+        ? `${lChokePlayer?.ign}, no palco do ${championship.name} vimos hesitações suas contra a ${winnerTeam.name} que normalmente não acontecem. A diferença de ritmo internacional pesou?`
+        : `${lChokePlayer?.ign}, a ${winnerTeam.name} concentrou muita pressão na sua rota nesse ${scoreStr}. O que aconteceu nos momentos críticos?`,
       answer: isIntl
-        ? `"Não vou me esconder atrás de desculpas. Na nossa liga local você conhece os vícios de cada adversário e tem margem pra errar uma janela de tempo e ainda recuperar na mecânica. Aqui no ${championship.name}, contra um time como a ${winnerTeam.name}, meio segundo de hesitação custa um objetivo inteiro. Eu senti a diferença de ritmo internacional hoje — quando tentei forçar as jogadas que normalmente dão certo na liga regional, ${wMvpPlayer?.ign} e ${wIglPlayer?.ign} já estavam um passo à frente. A responsabilidade é minha e preciso transformar essa dor em bagagem real."`
-        : `"A verdade é que depois que perdemos as primeiras disputas importantes de mapa, eu comecei a forçar jogadas tentando resolver tudo de uma vez e acabei entregando exatamente o que a ${winnerTeam.name} queria. Tenho ${lChokePlayer?.resolved.mechanics} de capacidade mecânica, mas hoje deixei a ansiedade falar mais alto nos momentos de decisão. Peço desculpas aos meus companheiros e à torcida da ${loserTeam.name}; é uma lição amarga que vou ter que carregar."`,
+        ? pickVariant(seedBase, "l-choke-intl", [
+            `"Na nossa liga local você tem mais margem para errar um timing e recuperar depois. Aqui no ${championship.name}, contra ${wMvpPlayer?.ign} e ${wIglPlayer?.ign}, qualquer segundo de dúvida vira objetivo perdido. Senti o peso do palco em algumas chamadas e assumo minha parcela nisso."`,
+            `"Tentei forçar algumas jogadas para tirar o time do sufoco, mas o nível de punição da ${winnerTeam.name} é muito alto. É frustrante não conseguir mostrar meus ${lChokePlayer?.resolved.mechanics} de mecânica com a mesma naturalidade que tenho em casa."`,
+          ])
+        : pickVariant(seedBase, "l-choke-dom", [
+            `"Depois que perdemos as primeiras lutas pelo objetivo, tentei resolver no individual e acabei me expondo demais. Deixei a ansiedade falar mais alto do que a leitura de mapa e isso custou caro para a ${loserTeam.name}."`,
+            `"Hoje a ${winnerTeam.name} leu muito bem minhas movimentações e eu demorei para ajustar o posicionamento. É difícil aceitar uma derrota assim, mas preciso responder melhor sob pressão."`,
+          ]),
       statCallout: isIntl
-        ? `Choque Internacional: ${lChokePlayer?.ign} tem ${lChokePlayer?.resolved.mechanics} MEC, mas apenas ${lChokePlayer?.resolved.intlExperience} de Exp. Internacional e ${lChokePlayer?.resolved.mentality} de Mentalidade`
-        : `Sob Pressão: ${lChokePlayer?.ign} registrou Mentalidade ${lChokePlayer?.resolved.mentality} e Clutch ${lChokePlayer?.resolved.clutch} nos momentos decisivos`,
+        ? `Choque Internacional: ${lChokePlayer?.ign} (${lChokePlayer?.resolved.mechanics} MEC · ${lChokePlayer?.resolved.intlExperience} Exp. Int.)`
+        : `Sob Pressão: ${lChokePlayer?.ign} (Mentalidade ${lChokePlayer?.resolved.mentality} · Clutch ${lChokePlayer?.resolved.clutch})`,
     },
     {
       id: "l-3",
       outlet: outlets[2].outlet,
       journalist: outlets[2].journalist,
-      topicTag: "FRUSTRAÇÃO INDIVIDUAL",
+      topicTag: "VISÃO INDIVIDUAL",
       speakerName: `${lLoneStar?.ign ?? loserTeam.tag}`,
       speakerRole: `${ROLE_PT[lLoneStar?.role ?? "adc"]} · Destaque da ${loserTeam.name}`,
       speakerBadge: `MECÂNICA ${lLoneStar?.resolved.mechanics} · CONSIST ${lLoneStar?.resolved.consistency}`,
       speakerTone: "gold",
-      question: `${lLoneStar?.ign}, individualmente você tentou manter a ${loserTeam.name} viva em várias lutas da série, mas o coletivo não acompanhou o ritmo da ${winnerTeam.name}. Qual é o sentimento de sair derrotado por ${scoreStr} sabendo que tinha nível para ir além?`,
-      answer: `"É extremamente frustrante. Eu me preparei no limite, mantive minha fase de rotas sólida e tentei buscar espaço em todas as teamfights, mas esports de alto nível não se ganha no 1v5. A ${winnerTeam.name} jogou como uma unidade muito mais coesa hoje — sempre que eu conseguia abrir uma vantagem lateral, ${wMvpPlayer?.ign} e ${wClutchPlayer?.ign} já tinham cobrado um preço maior do outro lado do mapa. Sair ${
-        isGrandFinal ? "vendo eles levantarem o troféu na nossa frente" : "eliminado nessa fase"
-      } deixa um gosto amargo demais, porque sabemos que o potencial bruto desse elenco era muito maior do que mostramos hoje."`,
-      statCallout: `Esforço Isolado: ${lLoneStar?.ign} liderou a ${loserTeam.tag} com ${lLoneStar?.resolved.mechanics} de Mecânica e ${lLoneStar?.resolved.consistency} de Consistência`,
+      question: `${lLoneStar?.ign}, você foi o jogador mais consistente da ${loserTeam.name} na série, mas não foi suficiente contra a ${winnerTeam.name}. O que fica de sentimento após o ${scoreStr}?`,
+      answer: pickVariant(seedBase, "l-star", [
+        `"É duro porque você se prepara ao máximo para fazer sua parte na rota, mas LoL de alto nível não se resolve no 1v5. Sempre que eu buscava uma janela lateral, a ${winnerTeam.name} já estava cobrando um objetivo com ${wMvpPlayer?.ign} e ${wClutchPlayer?.ign}. Saímos frustrados por não termos conseguido jogar como unidade."`,
+        `"Eu tentei puxar a responsabilidade nas lutas, mas hoje o coletivo da ${winnerTeam.name} funcionou muito melhor que o nosso. Mesmo quando conseguíamos abates, faltava coordenação para transformar isso em controle de mapa."`,
+      ]),
+      statCallout: `Destaque da ${loserTeam.tag}: ${lLoneStar?.ign} (${lLoneStar?.resolved.mechanics} MEC · ${lLoneStar?.resolved.consistency} CONS)`,
     },
     {
       id: "l-4",
       outlet: outlets[3].outlet,
       journalist: outlets[3].journalist,
-      topicTag: "FALHA DE ADAPTAÇÃO",
+      topicTag: "AJUSTE TÁTICO & DRAFT",
       speakerName: `${lTacticalPlayer?.ign ?? loserTeam.tag}`,
       speakerRole: `${ROLE_PT[lTacticalPlayer?.role ?? "top"]} · ${loserTeam.name}`,
       speakerBadge: `ADAPTAÇÃO ${lTacticalPlayer?.resolved.adaptability} · QI ${lTacticalPlayer?.resolved.gameIq}`,
       speakerTone: "blue",
-      question: `Ao longo dos ${winnerScore + loserScore} mapas, a impressão de quem assistia era que a ${winnerTeam.name} sempre tinha uma resposta pronta para os drafts de vocês. Faltou repertório tático para mudar o rumo da série?`,
-      answer: `"Faltou velocidade de leitura entre um jogo e outro. Quando a ${winnerTeam.name} ajustou o posicionamento de visão e passou a acelerar o mapa pelo lado de ${wMvpPlayer?.ign}, nós insistimos na mesma abordagem padrão achando que ia funcionar apenas na execução. Contra um time que tem ${wAdapt} de adaptação coletiva, você não pode ser previsível. Quando finalmente tentamos mudar o estilo no último mapa, eles já estavam com a confiança lá no alto e não nos deixaram respirar."`,
-      statCallout: `Diferença de Adaptação na Série: ${loserTeam.tag} (${lAdapt}) vs ${winnerTeam.tag} (${wAdapt})`,
+      question: `Ao longo dos ${winnerScore + loserScore} mapas, pareceu que a ${winnerTeam.name} se adaptava mais rápido entre um jogo e outro. Faltou repertório para responder?`,
+      answer: pickVariant(seedBase, "l-tactical", [
+        `"Faltou agilidade para mudar a leitura entre os mapas. Quando a ${winnerTeam.name} passou a acelerar o lado de ${wMvpPlayer?.ign}, insistimos em um estilo muito parecido achando que ia encaixar na execução. Contra um time com ${wAdapt} de adaptação, insistir no erro é fatal."`,
+        `"Nós tínhamos respostas preparadas no papel, mas dentro do servidor não conseguimos executar o plano alternativo. Quando finalmente tentamos mudar o ritmo no draft, eles já estavam muito confortáveis na série."`,
+      ]),
+      statCallout: `Adaptação na Série: ${loserTeam.tag} (${lAdapt}) vs ${winnerTeam.tag} (${wAdapt})`,
     },
     {
       id: "l-5",
       outlet: outlets[4].outlet,
       journalist: outlets[4].journalist,
-      topicTag: "FUTURO & RECONSTRUÇÃO",
-      speakerName: `Head Coach (${loserTeam.tag})`,
+      topicTag: "AVALIAÇÃO & PRÓXIMOS PASSOS",
+      speakerName: lCoachName,
       speakerRole: `Diretor Técnico · ${loserTeam.name}`,
       speakerBadge: `ELO ${lElo} · ANÁLISE PÓS-SÉRIE`,
       speakerTone: "purple",
-      question: `Coach, após essa ${
-        isGrandFinal ? `derrota por ${scoreStr} na Grande Final` : `eliminação por ${scoreStr}`
-      } diante da ${winnerTeam.name}, qual é a avaliação fria da comissão técnica? O que precisa mudar na ${loserTeam.name} para a sequência da temporada?`,
-      answer: `"Primeiro, a responsabilidade pelo plano tático e pela preparação emocional para enfrentar a ${winnerTeam.name} começa em mim. Hoje ficou evidente uma lacuna clara: não basta termos média mecânica de ${lMech} se na hora da pressão máxima nossa estabilidade mental (${lMental}) e nosso poder de decisão (${lClutch}) caem abaixo do exigido ${
-        isIntl ? "em um torneio internacional desse porte" : "numa decisão de playoffs"
-      }. Vamos fazer uma autocrítica profunda nos bastidores. ${
-        isIntl
-          ? `Voltamos para a ${loserTeam.region ?? "nossa liga"} sabendo exatamente onde está a distância para o topo internacional.`
-          : "A janela e o próximo split vão exigir maturidade real de todo o grupo para voltarmos mais fortes."
-      }"`,
-      statCallout: `Pontos Críticos para Evolução da ${loserTeam.tag}: Mentalidade (${lMental}), Clutch (${lClutch})${isIntl ? ` e Bagagem Int. (${lIntl})` : ""}`,
+      question: `Coach, após esse ${scoreStr} diante da ${winnerTeam.name}, qual é a leitura fria da comissão técnica para a sequência?`,
+      answer: lCoachAnswer,
+      statCallout: `Pontos de Evolução da ${loserTeam.tag}: Mentalidade (${lMental}), Clutch (${lClutch})${isIntl ? ` e Exp. Int. (${lIntl})` : ""}`,
     },
   ];
-
-  // Garantir determinismo caso precise de tie-break visual
-  void hashStr(`${championship.id}:${match.id}:${winnerTeam.id}:${loserTeam.id}`);
 
   return {
     isGrandFinal,
