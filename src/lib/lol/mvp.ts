@@ -133,6 +133,7 @@ export interface SeasonAwardWinner {
   playerId?: string;
   ign: string;
   real?: string;
+  country?: string;
   role: PlayerRole;
   teamId: string;
   teamName: string;
@@ -242,6 +243,7 @@ export function computeChampionshipAwards(
         playerId: p.id,
         ign: p.ign,
         real: p.real,
+        country: p.country,
         role: p.role,
         teamId: team.id,
         teamName: team.name,

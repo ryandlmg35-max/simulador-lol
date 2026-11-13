@@ -40,6 +40,7 @@ import { LiveFinalModal } from "@/components/lol/live-final-modal";
 import { PressConferenceModal } from "@/components/lol/press-conference-modal";
 import { OffseasonMarketDialog } from "@/components/lol/offseason-market";
 import { TeamProfileDrawer } from "@/components/lol/team-profile-drawer";
+import { CountryFlag } from "@/components/lol/country-flag";
 import type { GroupsConfig, Phase } from "@/lib/lol/types";
 import {
   automaticPlayInAdvanceCount,
@@ -1299,6 +1300,7 @@ function ChampionshipPage() {
                     <span className="bg-gold px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-ink">
                       {seasonAwards.splitMvp.role.toUpperCase()}
                     </span>
+                    <CountryFlag code={seasonAwards.splitMvp.country} size="md" />
                     <span className="font-display text-2xl uppercase tracking-wider text-bone sm:text-3xl">
                       {seasonAwards.splitMvp.ign}
                     </span>
@@ -1366,8 +1368,11 @@ function ChampionshipPage() {
                       </div>
                       {w ? (
                         <div className="mt-2.5">
-                          <div className="font-display text-xl uppercase tracking-wide text-bone">
-                            {w.ign}
+                          <div className="flex items-center gap-2">
+                            <CountryFlag code={w.country} size="sm" />
+                            <span className="font-display text-xl uppercase tracking-wide text-bone">
+                              {w.ign}
+                            </span>
                           </div>
                           <button
                             type="button"

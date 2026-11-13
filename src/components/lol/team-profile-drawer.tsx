@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { CareerLedger, Championship, GameId, Player, Team } from "@/lib/lol/types";
 import { TeamLogo } from "./team-logo";
+import { CountryFlag } from "./country-flag";
 import { ensureRoster, pickStarters } from "@/lib/lol/players";
 import { canonicalTournamentName } from "@/lib/lol/international";
 import { useStore } from "@/lib/lol/store";
@@ -360,12 +361,13 @@ export function TeamProfileDrawer({
                             </span>
                             <div>
                               <div className="flex items-center gap-2">
+                                <CountryFlag code={player.country} size="xs" />
                                 <span className="font-display text-sm font-bold text-foreground">
                                   {player.ign}
                                 </span>
                                 {player.country ? (
-                                  <span className="text-xs text-muted-foreground font-mono">
-                                    [{player.country}]
+                                  <span className="text-[11px] text-muted-foreground font-mono">
+                                    {player.country}
                                   </span>
                                 ) : null}
                               </div>
