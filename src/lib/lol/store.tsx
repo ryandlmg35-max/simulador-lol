@@ -1504,12 +1504,11 @@ function deduplicateHistoryList(
     const splitKey = normalizeHistorySplitKey(e.splitLabel || "");
     const teamKey = e.teamName.trim().toLowerCase();
     const composite = `${teamKey}:::${splitKey}`;
-    // Evita duplicar exatamente o mesmo split (mesmo com variação de pontuação como "2026 · Split 1" vs "2026 Split 1")
-    if (seen.has(composite) || (splitKey && seen.has(`split:::${splitKey}`))) {
+    // Evita duplicar exatamente o mesmo time no mesmo split
+    if (seen.has(composite)) {
       continue;
     }
     seen.add(composite);
-    if (splitKey) seen.add(`split:::${splitKey}`);
     out.push(e);
   }
   return out;
@@ -2915,8 +2914,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const existsIdx = list.findIndex((h) => {
           const k = normalizeHistorySplitKey(h.splitLabel || "");
           return (
-            (k !== "" && k === targetSplitKey) ||
-            (h.teamName.trim().toLowerCase() === targetTeamKey && k === targetSplitKey)
+            k !== "" &&
+            k === targetSplitKey &&
+            h.teamName.trim().toLowerCase() === targetTeamKey
           );
         });
         if (existsIdx >= 0) {
@@ -2925,9 +2925,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return [newEntry, ...list];
       };
 
-      // NÃO credita na carreira aqui — o crédito automático em setMatchResult
-      // já disparou quando a final foi decidida (evita duplicação de título).
-      // O "Salvar no Histórico" apenas registra no card do campeonato (sem duplicar).
+      // Garante crédito na carreira caso a final ainda não tenha sido creditada para esta edição/temporada
+      const targetChamp = championshipsRef.current.find((c) => c.id === championshipId);
+      if (targetChamp && division === 1) {
+        const autoLabel = (targetChamp.season ?? "Atual").trim() || "Atual";
+        const autoKey = `title:${normKey(canonicalTournamentName(targetChamp.name))}|${normKey(autoLabel)}|${normKey(entry.teamName)}`;
+        setCareer((prev) => {
+          if (prev.seen?.[autoKey]) return prev;
+          return creditBonus(prev, targetChamp, "title", entry.splitLabel || autoLabel, {
+            name: entry.teamName,
+            tag: entry.teamTag,
+            logo: entry.teamLogo,
+          });
+        });
+      }
+
       setChampionships((prev) =>
         prev.map((c) => {
           if (c.id !== championshipId) return c;
