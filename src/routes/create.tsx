@@ -129,6 +129,41 @@ const mkDraftPhase = (kind: PhaseKind, index: number): DraftPhase => ({
   config: defaultConfigFor(kind),
 });
 
+/** Monta o formato oficial da Copa do Mundo de Seleções (Grupos + Playoffs). */
+const buildWorldCupPhases = (teamCount: number): DraftPhase[] => {
+  const groupCount = teamCount >= 12 ? 4 : teamCount >= 6 ? 2 : 1;
+  const qualifiersPerGroup = groupCount === 4 ? 2 : groupCount === 2 ? 2 : teamCount >= 4 ? 4 : 2;
+  const playoffSlots = groupCount * qualifiersPerGroup;
+  return [
+    {
+      id: uid(),
+      name: groupCount === 1 ? "Fase de Grupos Única" : `Fase de Grupos (${groupCount} Grupos)`,
+      kind: "groups",
+      config: {
+        kind: "groups",
+        groupCount,
+        qualifiersPerGroup,
+        bestOf: 1,
+        doubleRoundRobin: false,
+      },
+    },
+    {
+      id: uid(),
+      name: "Playoffs da Copa do Mundo",
+      kind: "bracket",
+      config: {
+        kind: "bracket",
+        slots: playoffSlots,
+        type: "single",
+        defaultBestOf: 5,
+        finalBestOf: 5,
+        bracketReset: false,
+        mode: "auto",
+      },
+    },
+  ];
+};
+
 function CreatePage() {
   const navigate = useNavigate();
   const { addChampionship, career, championships } = useStore();
@@ -161,6 +196,21 @@ function CreatePage() {
   const [phasesB, setPhasesB] = useState<DraftPhase[]>([]);
   const [teamsDivision, setTeamsDivision] = useState<Division>(1);
 
+  const isWorldCupMode =
+    /copa do mundo|world cup|seleções|selecoes/i.test(name) ||
+    logo === OFFICIAL_REGION_LOGOS.WorldCup;
+
+  // Ao chegar na Etapa 3 em modo Copa do Mundo sem seleções convocadas, convoca automaticamente
+  useEffect(() => {
+    if (step === 3 && isWorldCupMode && teamsA.length === 0) {
+      const wc = buildWorldCupNationalTeams(championships, career);
+      if (wc.teams.length >= 2) {
+        setTeamsA(wc.teams);
+        setPhasesA(buildWorldCupPhases(wc.teams.length));
+      }
+    }
+  }, [step, isWorldCupMode, teamsA.length, championships, career]);
+
   // Carrega template da URL se fornecido (ex: vindo do Calendário)
   useEffect(() => {
     if (prefilledTemplate) {
@@ -181,29 +231,7 @@ function CreatePage() {
           if (wc.teams.length >= 2) {
             setTeamsA(wc.teams);
           }
-          const useGroups = wc.teams.length > 0 && wc.teams.length < 6;
-          const playoffSlots = wc.teams.length >= 10 ? 8 : wc.teams.length >= 4 ? 4 : 2;
-          setPhasesA([
-            useGroups
-              ? {
-                  id: uid(),
-                  name: "Fase de Grupos Única",
-                  kind: "groups",
-                  config: { kind: "groups", groupCount: 1, qualifiersPerGroup: playoffSlots, bestOf: 1, doubleRoundRobin: false },
-                }
-              : {
-                  id: uid(),
-                  name: "Fase de Grupos (Suíço)",
-                  kind: "swiss",
-                  config: { kind: "swiss", winsToAdvance: 3, lossesToEliminate: 3, defaultBestOf: 1 },
-                },
-            {
-              id: uid(),
-              name: "Playoffs da Copa do Mundo",
-              kind: "bracket",
-              config: { kind: "bracket", slots: playoffSlots, type: "single", defaultBestOf: 5, finalBestOf: 5, bracketReset: false, mode: "auto" },
-            },
-          ]);
+          setPhasesA(buildWorldCupPhases(wc.teams.length));
         } else {
           setPhasesA(
             match.buildPhases().map((p) => ({
@@ -964,8 +992,6 @@ function CreatePage() {
                     type="button"
                     onClick={() => {
                       const wc = buildWorldCupNationalTeams(championships, career);
-                      const useGroups = wc.teams.length > 0 && wc.teams.length < 6;
-                      const playoffSlots = wc.teams.length >= 10 ? 8 : wc.teams.length >= 4 ? 4 : 2;
                       applyTemplate(
                         {
                           name: "Copa do Mundo de Seleções",
@@ -975,46 +1001,7 @@ function CreatePage() {
                           internationalLevel: "minor",
                           scheduledMonth: 12,
                         },
-                        [
-                          useGroups
-                            ? {
-                                id: uid(),
-                                name: "Fase de Grupos Única",
-                                kind: "groups",
-                                config: {
-                                  kind: "groups",
-                                  groupCount: 1,
-                                  qualifiersPerGroup: playoffSlots,
-                                  bestOf: 1,
-                                  doubleRoundRobin: false,
-                                },
-                              }
-                            : {
-                                id: uid(),
-                                name: "Fase de Grupos (Suíço)",
-                                kind: "swiss",
-                                config: {
-                                  kind: "swiss",
-                                  winsToAdvance: 3,
-                                  lossesToEliminate: 3,
-                                  defaultBestOf: 1,
-                                },
-                              },
-                          {
-                            id: uid(),
-                            name: "Playoffs da Copa do Mundo",
-                            kind: "bracket",
-                            config: {
-                              kind: "bracket",
-                              slots: playoffSlots,
-                              type: "single",
-                              defaultBestOf: 5,
-                              finalBestOf: 5,
-                              bracketReset: false,
-                              mode: "auto",
-                            },
-                          },
-                        ],
+                        buildWorldCupPhases(wc.teams.length),
                       );
                       if (wc.teams.length >= 2) {
                         setTeamsA(wc.teams);
@@ -1492,11 +1479,13 @@ function CreatePage() {
             <SectionTitle
               icon={Users}
               step={3}
-              title="Times"
+              title={isWorldCupMode ? "Seleções Nacionais" : "Times"}
               sub={
-                hasSecondDivision
-                  ? "Cadastre os times de cada série separadamente. Mínimo 2 por série."
-                  : "Adicione quantos times quiser. Mínimo 2."
+                isWorldCupMode
+                  ? "Seleções convocadas automaticamente por desempenho (100% nativos, zero gringos)."
+                  : hasSecondDivision
+                    ? "Cadastre os times de cada série separadamente. Mínimo 2 por série."
+                    : "Adicione quantos times quiser. Mínimo 2."
               }
             />
 
@@ -1532,8 +1521,8 @@ function CreatePage() {
               </div>
             )}
 
-            {/* Ação rápida para puxar classificados das ligas automaticamente */}
-            {circuitDef && (
+            {/* Ação rápida para puxar classificados das ligas automaticamente (apenas campeonatos de clubes) */}
+            {circuitDef && !isWorldCupMode && (
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-2 border-gold/60 bg-gold/10 p-3">
                 <div>
                   <div className="font-display text-xs uppercase tracking-widest text-gold font-bold">
@@ -1583,57 +1572,18 @@ function CreatePage() {
             <TeamsList
               game={game}
               champName={name}
+              isWorldCup={isWorldCupMode}
               accent={hasSecondDivision && teamsDivision === 2 ? "blood" : "gold"}
               teams={teamsOf(teamsDivision)}
               showRegionalSeedingHint={
+                !isWorldCupMode &&
                 /worlds?|mundial|\bmsi\b|mid.?season/i.test(name) &&
                 isPlayInPhaseName(phasesOf(teamsDivision)[0]?.name ?? "")
               }
               onAiImport={(imported) => setTeamsOf(teamsDivision, (prev) => [...prev, ...imported])}
               onWorldCupApply={(wcTeams) => {
                 setTeamsOf(teamsDivision, () => wcTeams);
-                const useGroups = wcTeams.length < 6;
-                const playoffSlots = wcTeams.length >= 10 ? 8 : wcTeams.length >= 4 ? 4 : 2;
-                setPhasesOf(teamsDivision, () => [
-                  useGroups
-                    ? {
-                        id: uid(),
-                        name: "Fase de Grupos Única",
-                        kind: "groups",
-                        config: {
-                          kind: "groups",
-                          groupCount: 1,
-                          qualifiersPerGroup: playoffSlots,
-                          bestOf: 1,
-                          doubleRoundRobin: false,
-                        },
-                      }
-                    : {
-                        id: uid(),
-                        name: "Fase de Grupos (Suíço)",
-                        kind: "swiss",
-                        config: {
-                          kind: "swiss",
-                          winsToAdvance: 3,
-                          lossesToEliminate: 3,
-                          defaultBestOf: 1,
-                        },
-                      },
-                  {
-                    id: uid(),
-                    name: "Playoffs da Copa do Mundo",
-                    kind: "bracket",
-                    config: {
-                      kind: "bracket",
-                      slots: playoffSlots,
-                      type: "single",
-                      defaultBestOf: 5,
-                      finalBestOf: 5,
-                      bracketReset: false,
-                      mode: "auto",
-                    },
-                  },
-                ]);
+                setPhasesOf(teamsDivision, () => buildWorldCupPhases(wcTeams.length));
                 toast.success(`${wcTeams.length} seleções convocadas por desempenho!`);
               }}
               addTeam={() => addTeamAt(teamsDivision)}
@@ -2581,6 +2531,7 @@ function TeamsList({
   teams,
   game,
   champName,
+  isWorldCup: isWorldCupProp,
   accent,
   showRegionalSeedingHint,
   onAiImport,
@@ -2592,6 +2543,7 @@ function TeamsList({
   teams: Team[];
   game: GameId;
   champName?: string;
+  isWorldCup?: boolean;
   accent: "gold" | "blood";
   showRegionalSeedingHint: boolean;
   onAiImport: (teams: Team[]) => void;
@@ -2601,7 +2553,8 @@ function TeamsList({
   removeTeam: (id: string) => void;
 }) {
   const toDataUrl = useFileToDataUrl();
-  const isWorldCup = /copa do mundo|world cup|seleções|selecoes/i.test(champName ?? "");
+  const isWorldCup =
+    isWorldCupProp ?? /copa do mundo|world cup|seleções|selecoes/i.test(champName ?? "");
 
   return (
     <div>
@@ -2612,34 +2565,38 @@ function TeamsList({
             currentTeamCount={teams.length}
           />
         ) : null}
-        {showRegionalSeedingHint ? (
+        {!isWorldCup && showRegionalSeedingHint ? (
           <p className="border border-gold/40 bg-gold/5 px-3 py-2 text-xs text-muted-foreground">
             Informe a região de cada time (LCK, LPL, LEC, LCS, CBLOL...) para separar classificados
             diretos e participantes do play-in.
           </p>
         ) : null}
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="flex-1">
-            <AiTeamImport game={game} onImport={onAiImport} />
-          </div>
-          <div className="flex-1">
-            <ImportLeagueTeams
-              game={game}
-              currentChampName={champName}
-              onImport={onAiImport}
-              currentTeamNames={teams.map((t) => t.name)}
-            />
-          </div>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="flex-1">
-            <ImportFromRanking
-              game={game}
-              onImport={onAiImport}
-              currentTeamNames={teams.map((t) => t.name)}
-            />
-          </div>
-        </div>
+        {!isWorldCup ? (
+          <>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex-1">
+                <AiTeamImport game={game} onImport={onAiImport} />
+              </div>
+              <div className="flex-1">
+                <ImportLeagueTeams
+                  game={game}
+                  currentChampName={champName}
+                  onImport={onAiImport}
+                  currentTeamNames={teams.map((t) => t.name)}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex-1">
+                <ImportFromRanking
+                  game={game}
+                  onImport={onAiImport}
+                  currentTeamNames={teams.map((t) => t.name)}
+                />
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
       <div className="border-2 border-ink bg-card">
         <div className="border-b-2 border-ink bg-ink px-4 py-2">
@@ -2647,15 +2604,17 @@ function TeamsList({
             <span
               className={`font-display text-lg uppercase tracking-widest ${accent === "gold" ? "text-gold" : "text-blood"}`}
             >
-              Times ({teams.length})
+              {isWorldCup ? `Seleções Convocadas (${teams.length})` : `Times (${teams.length})`}
             </span>
-            <button
-              type="button"
-              onClick={addTeam}
-              className="flex items-center gap-2 border-2 border-gold/60 bg-gold/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gold hover:bg-gold/20"
-            >
-              <Plus className="h-3 w-3" /> Adicionar
-            </button>
+            {!isWorldCup ? (
+              <button
+                type="button"
+                onClick={addTeam}
+                className="flex items-center gap-2 border-2 border-gold/60 bg-gold/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gold hover:bg-gold/20"
+              >
+                <Plus className="h-3 w-3" /> Adicionar
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="p-4">
