@@ -325,10 +325,12 @@ function buildMapPlan(params: {
       important: true,
     });
   } else {
-    // ---------- LEAGUE OF LEGENDS: ABATES PASSO A PASSO COM VIRADAS REAIS ----------
-    // Em jogos difíceis ou de virada, o vencedor pode até terminar com MENOS kills que o perdedor
-    // ou virar o placar de kills só nos últimos 10 minutos!
-    const macroStealWin = isComeback && Math.random() < 0.35;
+    // ---------- LEAGUE OF LEGENDS: ABATES PASSO A PASSO COM VIRADAS E CONTRA-VIRADAS ----------
+    // Em jogos difíceis ou de virada, o vencedor pode até terminar com MENOS kills que o perdedor,
+    // e um time que vira nos abates no mid-game pode sofrer contra-virada no Barão/Ancião!
+    const loserSide: "A" | "B" = winnerSide === "A" ? "B" : "A";
+    const macroStealWin = isComeback && Math.random() < 0.45;
+    const falseComeback = !isComeback && archetype !== "stomp" && Math.random() < 0.45;
     let curA = 0;
     let curB = 0;
     snapshots.push({ inGameA: 0, inGameB: 0, clockMins: 0, liveProbA: gameProbA });
@@ -351,10 +353,10 @@ function buildMapPlan(params: {
         if (Math.random() < 0.45) sideKills(earlyTrailer, 1);
       } else if (s === 4 || s === 5) {
         // Mid game inicial (12-18 min)
-        if (isComeback) {
-          // O time que vai perder ainda está na frente! (Ex: 8x3 ou 9x4)
+        if (isComeback || falseComeback) {
+          // O líder inicial abre ou sustenta vantagem no placar de kills
           sideKills(earlyLeader, 1 + Math.floor(Math.random() * 2));
-          if (Math.random() < 0.6) sideKills(earlyTrailer, 1);
+          if (Math.random() < 0.55) sideKills(earlyTrailer, 1);
         } else if (archetype === "brawl") {
           sideKills("A", 1 + Math.floor(Math.random() * 2));
           sideKills("B", 1 + Math.floor(Math.random() * 2));
@@ -367,39 +369,47 @@ function buildMapPlan(params: {
         if (isComeback) {
           // Time que estava atrás começa a reagir em teamfights!
           sideKills(winnerSide, 2 + Math.floor(Math.random() * 3));
-          if (Math.random() < 0.55) sideKills(loserTeam === teamA ? "A" : "B", 1);
+          if (Math.random() < 0.55) sideKills(loserSide, 1);
+        } else if (falseComeback) {
+          // Falsa virada: o perdedor reage no mid-game e PASSA À FRENTE em kills!
+          sideKills(loserSide, 3 + Math.floor(Math.random() * 2));
+          if (Math.random() < 0.45) sideKills(winnerSide, 1);
         } else if (archetype === "brawl") {
           sideKills("A", 2 + Math.floor(Math.random() * 2));
           sideKills("B", 2 + Math.floor(Math.random() * 2));
         } else if (archetype === "tactical") {
           sideKills(winnerSide, 1 + Math.floor(Math.random() * 2));
-          if (Math.random() < 0.4) sideKills(loserTeam === teamA ? "A" : "B", 1);
+          if (Math.random() < 0.4) sideKills(loserSide, 1);
         } else {
           sideKills(winnerSide, 2 + Math.floor(Math.random() * 2));
         }
       } else if (s === 8 || s === 9) {
         // Late game / Barão / Ancião (28-36 min)
-        if (macroStealWin) {
+        if (falseComeback && s === 8) {
+          // O time que virou em kills ainda segura vantagem no minuto 29 antes da luta final
+          sideKills(loserSide, 1 + Math.floor(Math.random() * 2));
+          sideKills(winnerSide, 1);
+        } else if (macroStealWin) {
           // Vence por macro/roubo de Barão + backdoor/base push mesmo sem atropelar em kills
           sideKills(winnerSide, 1 + Math.floor(Math.random() * 2));
-          sideKills(loserTeam === teamA ? "A" : "B", 1);
-        } else if (isComeback) {
-          // Grande teamfight da virada (ACE / 4 abates)
+          sideKills(loserSide, 1);
+        } else if (isComeback || falseComeback) {
+          // Grande teamfight decisiva (ACE / Barão / Ancião)
           sideKills(winnerSide, 3 + Math.floor(Math.random() * 2));
-          if (Math.random() < 0.4) sideKills(loserTeam === teamA ? "A" : "B", 1);
+          if (Math.random() < 0.4) sideKills(loserSide, 1);
         } else {
           sideKills(winnerSide, 2 + Math.floor(Math.random() * 3));
-          if (archetype === "brawl") sideKills(loserTeam === teamA ? "A" : "B", 1 + Math.floor(Math.random() * 2));
+          if (archetype === "brawl") sideKills(loserSide, 1 + Math.floor(Math.random() * 2));
         }
       } else if (s === 10) {
         // Push final pro Nexus
         sideKills(winnerSide, macroStealWin ? 2 : 3 + Math.floor(Math.random() * 2));
-        if (!macroStealWin && isComeback) {
-          // Garante que uma virada épica termine disputada ou com o vencedor passando à frente no final
+        if (!macroStealWin && isComeback && !falseComeback) {
+          // Em parte das viradas tradicionais, o vencedor encosta no placar sem precisar sempre passar
           const winNow = winnerSide === "A" ? curA : curB;
           const loseNow = winnerSide === "A" ? curB : curA;
-          if (winNow < loseNow - 2) {
-            sideKills(winnerSide, loseNow - winNow);
+          if (winNow < loseNow - 3) {
+            sideKills(winnerSide, Math.max(1, loseNow - winNow - 1));
           }
         }
       }
@@ -435,7 +445,28 @@ function buildMapPlan(params: {
       text: `🩸 FIRST BLOOD! ${fbPlayer ? `${fbPlayer.ign} (${earlyLeaderTeam.tag})` : earlyLeaderTeam.tag} garante o primeiro abate e pressiona o mapa!`,
     });
 
-    if (isComeback) {
+    if (falseComeback) {
+      events.push({
+        atStep: 4,
+        timeLabel: `${String(snapshots[4].clockMins).padStart(2, "0")}:25`,
+        side: earlyLeader,
+        text: `⚡ ${winnerTeam.tag} começa forte (${snapshots[4].inGameA}×${snapshots[4].inGameB}) e controla os primeiros objetivos.`,
+      });
+      events.push({
+        atStep: 6,
+        timeLabel: `${String(snapshots[6].clockMins).padStart(2, "0")}:45`,
+        side: loserSide,
+        text: `🔥 VIRADA PARCIAL! ${starClutchL ? `${starClutchL.ign} (${loserTeam.tag})` : loserTeam.tag} vence luta no Dragão e PASSA À FRENTE nos abates (${snapshots[6].inGameA}×${snapshots[6].inGameB})!`,
+        important: true,
+      });
+      events.push({
+        atStep: 9,
+        timeLabel: `${String(snapshots[9].clockMins).padStart(2, "0")}:15`,
+        side: winnerSide,
+        text: `🤯 CONTRA-VIRADA DECISIVA! ${starClutchW ? `${starClutchW.ign} (${winnerTeam.tag})` : winnerTeam.tag} garante o Barão/Ancião no momento crítico e retoma o controle do jogo!`,
+        important: true,
+      });
+    } else if (isComeback) {
       const earlyScoreText = `${snapshots[4].inGameA}×${snapshots[4].inGameB}`;
       events.push({
         atStep: 4,
