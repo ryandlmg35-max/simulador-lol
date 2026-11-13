@@ -26,6 +26,7 @@ import { Dices } from "lucide-react";
 import { isInternationalChamp, useStore } from "@/lib/lol/store";
 import { TransferWindowFeed } from "@/components/lol/transfer-window-feed";
 import { StandingsTable } from "@/components/lol/standings";
+import { RivalriesPanel } from "@/components/lol/rivalries-panel";
 import { TeamLogo } from "@/components/lol/team-logo";
 import { TeamRosterInline } from "@/components/lol/team-roster-inline";
 import { rosterStrength } from "@/lib/lol/players";
@@ -1652,6 +1653,15 @@ function ChampionshipPage() {
             </div>
           </section>
         ) : null}
+
+        {/* Rivalidades, Paternidades ("É Pai") & Místicas (destaque em internacionais, discreto em ligas locais) */}
+        <RivalriesPanel
+          championship={championship}
+          allChampionships={championships}
+          poolTeams={poolTeams}
+          careerTable={career[championship.game ?? "lol"]}
+          isInternational={isIntl}
+        />
 
         {/* Painel de momentum (recolhido por padrão) */}
         <MomentumPanel championship={championship} division={activeDivision} teams={poolTeams} />
