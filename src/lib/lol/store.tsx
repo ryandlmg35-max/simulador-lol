@@ -308,10 +308,33 @@ function creditMatch(
     top2Regions.has(loserRegionNorm) &&
     winnerRegionNorm !== loserRegionNorm;
 
-  const baseWin = isPlayoff ? 5 : 3;
-  // Vitória contra time de uma das 2 melhores regiões concede bônus de gigante (+3 pts base):
-  const winPoints = Math.round((baseWin + (beatTopRegion ? 3 : 0)) * mult);
-  const lossPoints = Math.round((isPlayoff ? 1 : 2) * mult);
+  const isIntl = isInternationalChamp(c);
+  const DOMESTIC_MAX_POINTS = 7;
+
+  let winPoints: number;
+  let lossPoints: number;
+
+  if (isIntl) {
+    const baseWin = isPlayoff ? 5 : 3;
+    // Vitória contra time de uma das 2 melhores regiões concede bônus de gigante (+3 pts base):
+    winPoints = Math.round((baseWin + (beatTopRegion ? 3 : 0)) * mult);
+    lossPoints = Math.round((isPlayoff ? 1 : 2) * mult);
+  } else {
+    // Em liga doméstica, os pontos são reduzidos e o ganho total no campeonato nunca passa de 7 pontos
+    const rawWin = isPlayoff ? 2 : 1;
+    lossPoints = 1;
+    const wCapKey = `${c.id}|${normKey(winner.name)}`;
+    const lCapKey = `${c.id}|${normKey(loser.name)}`;
+    const earnedW = next.domesticCap?.[wCapKey] ?? 0;
+    const earnedL = next.domesticCap?.[lCapKey] ?? 0;
+    const allowedGain = Math.max(0, DOMESTIC_MAX_POINTS - earnedW);
+    winPoints = Math.min(rawWin, allowedGain);
+    next.domesticCap = {
+      ...(next.domesticCap ?? {}),
+      [wCapKey]: earnedW + winPoints,
+      [lCapKey]: Math.max(0, earnedL - lossPoints),
+    };
+  }
 
   w.points += winPoints;
   w.wins += 1;
@@ -443,9 +466,24 @@ function creditBonus(
       titles: 0,
     }),
   };
+  const isIntl = isInternationalChamp(c);
+  const DOMESTIC_MAX_POINTS = 7;
+  const capKey = `${c.id}|${normKey(team.name)}`;
+  const earnedSoFar = next.domesticCap?.[capKey] ?? 0;
+
   if (kind === "title") {
-    entry.points += Math.round(20 * careerMultiplier(c));
+    const rawTitlePts = isIntl ? Math.round(20 * careerMultiplier(c)) : DOMESTIC_MAX_POINTS;
+    const creditPts = isIntl
+      ? rawTitlePts
+      : Math.max(0, Math.min(rawTitlePts, DOMESTIC_MAX_POINTS - earnedSoFar));
+    entry.points += creditPts;
     entry.titles += 1;
+    if (!isIntl) {
+      next.domesticCap = {
+        ...(next.domesticCap ?? {}),
+        [capKey]: Math.min(DOMESTIC_MAX_POINTS, earnedSoFar + creditPts),
+      };
+    }
     // Registra na lista de títulos (alimento do pódio permanente).
     next.titles = [
       ...(next.titles ?? []),
@@ -457,11 +495,21 @@ function creditBonus(
         teamLogo: team.logo,
         at: new Date().toISOString(),
         game,
-        points: Math.round(20 * careerMultiplier(c)),
+        points: creditPts,
       },
     ];
   } else {
-    entry.points += Math.round(10 * careerMultiplier(c));
+    const rawRunnerPts = isIntl ? Math.round(10 * careerMultiplier(c)) : 4;
+    const creditPts = isIntl
+      ? rawRunnerPts
+      : Math.max(0, Math.min(rawRunnerPts, 5 - earnedSoFar));
+    entry.points += creditPts;
+    if (!isIntl) {
+      next.domesticCap = {
+        ...(next.domesticCap ?? {}),
+        [capKey]: Math.min(DOMESTIC_MAX_POINTS, earnedSoFar + creditPts),
+      };
+    }
   }
   entry.tag = entry.tag ?? team.tag;
   entry.logo = entry.logo ?? team.logo;

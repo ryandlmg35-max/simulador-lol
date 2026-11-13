@@ -1177,10 +1177,10 @@ function CreatePage() {
                       🏛️ Liga Local / Nacional
                     </div>
                     <div className="mt-1 font-display text-[11px] text-gold">
-                      1.0x · Título: +20 pts
+                      Teto Máx: +7 pts · Título: +7 pts
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                      Torneio doméstico tradicional (CBLOL, LCK, LPL, etc.).
+                      Torneio doméstico tradicional (CBLOL, LCK, LPL, etc.). Ganho máximo de 7 pts no campeonato.
                     </div>
                   </button>
 

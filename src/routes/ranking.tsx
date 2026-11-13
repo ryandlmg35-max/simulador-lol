@@ -592,16 +592,22 @@ function RankingPage() {
 
           <div className="mb-4 grid grid-cols-1 gap-4 text-xs text-muted-foreground md:grid-cols-2">
             <div className="border border-border/50 bg-black/20 p-3">
-              <strong className="mb-1 block text-gold">Pontuação de Partidas:</strong>• Vitória em
-              Grupos/Suíço: <span className="text-emerald-500">+3 pts</span> <br />• Derrota em
-              Grupos/Suíço: <span className="text-red-500">-2 pts</span> <br />• Vitória em
-              Playoffs: <span className="text-emerald-500">+5 pts</span> <br />• Derrota em
-              Playoffs: <span className="text-red-500">-1 pt</span>
+              <strong className="mb-1 block text-gold">🏛️ Liga Doméstica (Teto Máx: +7 pts):</strong>
+              • Vitória em Grupos/Suíço: <span className="text-emerald-500">+1 pt</span> · Playoffs:{" "}
+              <span className="text-emerald-500">+2 pts</span> · Derrota:{" "}
+              <span className="text-red-500">-1 pt</span> <br />• Vice-campeão:{" "}
+              <span className="text-emerald-500">+4 pts</span> · Campeão:{" "}
+              <span className="text-emerald-500">+7 pts</span> <br />
+              <span className="mt-1 block text-[11px] text-gold/90">
+                *Nenhum time ganha mais de <strong>7 pontos</strong> no total dentro de uma liga doméstica.
+              </span>
             </div>
             <div className="border border-border/50 bg-black/20 p-3">
-              <strong className="mb-1 block text-gold">Bônus:</strong>• Campeão:{" "}
-              <span className="text-emerald-500">+20 pts</span> <br />• Vice-campeão:{" "}
-              <span className="text-emerald-500">+10 pts</span>
+              <strong className="mb-1 block text-gold">🌎 Torneios Internacionais (MSI / Worlds):</strong>
+              • Vitória Grupos: <span className="text-emerald-500">+4 a +6 pts</span> · Playoffs:{" "}
+              <span className="text-emerald-500">+7 a +10 pts</span> <br />• Vice-campeão:{" "}
+              <span className="text-emerald-500">+14 a +20 pts</span> · Campeão:{" "}
+              <span className="text-emerald-500">+27 a +40 pts</span>
               <span className="mt-1 block text-xs italic text-muted-foreground">
                 *Tudo é PERMANENTE — resetar/remover não muda o ranking.
               </span>

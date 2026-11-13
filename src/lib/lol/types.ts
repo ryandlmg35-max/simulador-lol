@@ -342,6 +342,8 @@ export interface CareerLedger {
   intlHistory?: Record<string, IntlEditionRecord[]>;
   /** Créditos já aplicados (idempotência: mesma partida/vencedor não credita 2x). */
   seen?: Record<string, true>;
+  /** Controle do teto máximo de pontos (+7) ganho por time em cada edição de liga doméstica. */
+  domesticCap?: Record<string, number>;
 }
 
 export interface Championship {
