@@ -1,0 +1,233 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius: 0.25rem;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-blood: var(--blood);
+  --color-ink: var(--ink);
+  --color-bone: var(--bone);
+  --font-display: "Bebas Neue", "Impact", sans-serif;
+  --font-sans: "Barlow Condensed", "Inter", sans-serif;
+}
+
+:root {
+  /* Esports poster palette: ink black, blood red, hextech gold, bone white */
+  --background: oklch(0.11 0.008 40);
+  --foreground: oklch(0.97 0.01 90);
+  --card: oklch(0.16 0.012 40);
+  --card-foreground: oklch(0.97 0.01 90);
+  --popover: oklch(0.13 0.012 40);
+  --popover-foreground: oklch(0.97 0.01 90);
+  --primary: oklch(0.58 0.24 25);
+  --primary-foreground: oklch(0.98 0.005 90);
+  --secondary: oklch(0.22 0.02 40);
+  --secondary-foreground: oklch(0.97 0.01 90);
+  --muted: oklch(0.18 0.015 40);
+  --muted-foreground: oklch(0.68 0.02 60);
+  --accent: oklch(0.82 0.16 85);
+  --accent-foreground: oklch(0.11 0.008 40);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0.005 90);
+  --border: oklch(0.28 0.02 40);
+  --input: oklch(0.2 0.02 40);
+  --ring: oklch(0.82 0.16 85);
+  --gold: oklch(0.82 0.16 85);
+  --blood: oklch(0.55 0.24 25);
+  --ink: oklch(0.06 0 0);
+  --bone: oklch(0.97 0.01 90);
+}
+
+@utility slant-r {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+}
+@utility slant-l {
+  clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%);
+}
+@utility slant-both {
+  clip-path: polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+}
+@utility notch-tl {
+  clip-path: polygon(16px 0, 100% 0, 100% 100%, 0 100%, 0 16px);
+}
+@utility notch-br {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
+}
+@utility text-outline {
+  color: transparent;
+  -webkit-text-stroke: 2px color-mix(in oklab, var(--bone) 28%, transparent);
+}
+@utility glow-gold {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--gold) 45%, transparent),
+    0 12px 40px -12px color-mix(in oklab, var(--gold) 55%, transparent);
+}
+@utility glow-blood {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--blood) 45%, transparent),
+    0 12px 40px -12px color-mix(in oklab, var(--blood) 65%, transparent);
+}
+@utility hairline-gold {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--gold) 70%, transparent),
+    transparent
+  );
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    background-image:
+      radial-gradient(circle at 15% 10%, oklch(0.28 0.14 25 / 0.35), transparent 45%),
+      radial-gradient(circle at 85% 90%, oklch(0.3 0.14 85 / 0.15), transparent 50%),
+      linear-gradient(180deg, oklch(0.1 0.008 40), oklch(0.08 0.008 40));
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4, .display {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    line-height: 0.95;
+  }
+}
+
+/* Grain overlay */
+.noise-layer {
+  position: relative;
+  isolation: isolate;
+}
+.noise-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.28;
+  mix-blend-mode: overlay;
+}
+.noise-layer > *:not(.absolute) {
+  position: relative;
+  z-index: 2;
+}
+
+/* Fine technical grid overlay */
+.tech-grid {
+  background-image:
+    linear-gradient(oklch(0.98 0 0 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.98 0 0 / 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Broadcast scanlines */
+.scanlines::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    180deg,
+    oklch(0 0 0 / 0.28) 0 1px,
+    transparent 1px 4px
+  );
+  opacity: 0.5;
+}
+
+/* Arena spotlight sweep behind the hero */
+.arena-light {
+  background:
+    conic-gradient(
+      from 200deg at 12% 0%,
+      color-mix(in oklab, var(--blood) 45%, transparent) 0deg,
+      transparent 40deg
+    ),
+    radial-gradient(60% 90% at 78% 110%, color-mix(in oklab, var(--gold) 30%, transparent), transparent 70%);
+  filter: blur(2px);
+}
+
+@keyframes sheen {
+  0% { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(320%) skewX(-18deg); }
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.22), transparent);
+  transform: translateX(-120%) skewX(-18deg);
+  pointer-events: none;
+}
+.sheen:hover::after {
+  animation: sheen 0.85s ease-out;
+}
+
+/* Diagonal stripe pattern */
+.stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    oklch(0.98 0 0 / 0.06) 0 2px,
+    transparent 2px 14px
+  );
+}
+.stripes-strong {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--blood) 0 12px,
+    oklch(0.06 0 0) 12px 24px
+  );
+}
+
+/* Grunge cracked texture background */
+.grunge {
+  background-image:
+    radial-gradient(ellipse at 30% 20%, oklch(0.98 0 0 / 0.06), transparent 60%),
+    radial-gradient(ellipse at 70% 80%, oklch(0 0 0 / 0.4), transparent 55%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'><g stroke='white' stroke-opacity='0.05' fill='none' stroke-width='1'><path d='M0 120 L120 100 L200 160 L340 130 L400 170'/><path d='M20 260 L180 240 L260 310 L400 280'/><path d='M0 340 L100 320 L220 380'/></g></svg>");
+  background-size: cover, cover, 400px 400px;
+}
+
+/* Blood splatter accent */
+.splatter {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><g fill='%23e11d1d' fill-opacity='0.35'><circle cx='40' cy='60' r='3'/><circle cx='80' cy='40' r='1.5'/><circle cx='120' cy='90' r='4'/><circle cx='160' cy='50' r='2'/><circle cx='60' cy='150' r='2.5'/><circle cx='140' cy='170' r='2'/><circle cx='180' cy='130' r='3'/><circle cx='20' cy='180' r='1.5'/></g></svg>");
+  background-size: 300px 300px;
+}
+
+/* Bold panel with gold hairline */
+.panel-gold {
+  border: 1px solid var(--gold);
+  box-shadow:
+    inset 0 0 0 1px oklch(0.06 0 0),
+    0 0 0 3px oklch(0.11 0.008 40),
+    0 8px 24px -8px oklch(0 0 0 / 0.6);
+}
