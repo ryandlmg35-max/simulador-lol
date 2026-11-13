@@ -1,7 +1,9 @@
-import { useMemo, memo } from "react";
+import { Fragment, useMemo, useState, memo } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Phase, Group, Team } from "@/lib/lol/types";
 import { rosterStrength } from "@/lib/lol/players";
 import { TeamLogo } from "./team-logo";
+import { TeamRosterInline } from "./team-roster-inline";
 
 interface Row {
   teamId: string;
@@ -61,6 +63,7 @@ export const StandingsTable = memo(function StandingsTable({
   const rows = useMemo(() => computeStandings(phase, group), [phase, group]);
   const teamById = useMemo(() => Object.fromEntries(teams.map((t) => [t.id, t])), [teams]);
   const relegateSet = useMemo(() => new Set(relegateTeamIds ?? []), [relegateTeamIds]);
+  const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
 
   return (
     <div className="noise-layer border-2 border-ink bg-card shadow-[4px_4px_0_0_var(--blood)]">
@@ -93,88 +96,110 @@ export const StandingsTable = memo(function StandingsTable({
             const teamStrength = rosterStrength(t?.roster);
             const inQualify = qualifySlots > 0 && i < qualifySlots;
             const inRelegate = !inQualify && relegateSet.has(r.teamId);
+            const isExpanded = expandedTeamId === r.teamId;
             return (
-              <tr
-                key={r.teamId}
-                className={`border-t border-ink/60 transition-colors ${
-                  inQualify ? "bg-gold/8" : inRelegate ? "bg-blood/15" : "odd:bg-black/20"
-                } hover:bg-blood/15`}
-              >
-                <td className="px-2 py-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`h-full w-1.5 self-stretch ${
-                        inQualify ? "bg-gold" : inRelegate ? "bg-blood" : "bg-border"
-                      }`}
-                      style={{ minHeight: 24 }}
-                    />
-                    <span
-                      className={`font-display text-lg ${
-                        inQualify
-                          ? "text-gold"
-                          : inRelegate
-                            ? "text-blood"
-                            : "text-muted-foreground"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <TeamLogo team={t} size={26} />
-                    <div className="flex flex-col leading-tight">
-                      <span className="font-display text-base uppercase tracking-wider text-bone">
-                        {t?.name}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        {t?.tag}
-                      </span>
-                    </div>
-                    {classification?.[r.teamId] === "qualified" ? (
-                      <span className="ml-1 border border-emerald-500/70 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-300">
-                        Classificado
-                      </span>
-                    ) : null}
-                    {classification?.[r.teamId] === "eliminated" ? (
-                      <span className="ml-1 border border-blood/70 bg-blood/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-blood">
-                        Eliminado
-                      </span>
-                    ) : null}
-                  </div>
-                </td>
-                <td className="px-1 py-2 text-center font-display text-lg text-gold">{r.w}</td>
-                <td className="px-1 py-2 text-center font-display text-lg text-blood">{r.l}</td>
-                <td className="px-2 py-2 text-center">
-                  <div className="flex items-center justify-center gap-0.5">
-                    {(last5?.[r.teamId] ?? []).map((res, j) => (
+              <Fragment key={r.teamId}>
+                <tr
+                  onClick={() => setExpandedTeamId(isExpanded ? null : r.teamId)}
+                  className={`cursor-pointer border-t border-ink/60 transition-colors ${
+                    inQualify ? "bg-gold/8" : inRelegate ? "bg-blood/15" : "odd:bg-black/20"
+                  } hover:bg-blood/15`}
+                >
+                  <td className="px-2 py-2">
+                    <div className="flex items-center gap-2">
                       <span
-                        key={j}
-                        className={`inline-block px-1 font-mono text-[10px] font-bold ${
-                          res === "W" ? "bg-emerald-500/80 text-black" : "bg-blood/80 text-bone"
+                        className={`h-full w-1.5 self-stretch ${
+                          inQualify ? "bg-gold" : inRelegate ? "bg-blood" : "bg-border"
+                        }`}
+                        style={{ minHeight: 24 }}
+                      />
+                      <span
+                        className={`font-display text-lg ${
+                          inQualify
+                            ? "text-gold"
+                            : inRelegate
+                              ? "text-blood"
+                              : "text-muted-foreground"
                         }`}
                       >
-                        {res}
+                        {i + 1}
                       </span>
-                    ))}
-                    {(last5?.[r.teamId] ?? []).length === 0 ? (
-                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        —
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <TeamLogo team={t} size={26} />
+                        <div className="flex flex-col leading-tight">
+                          <span className="font-display text-base uppercase tracking-wider text-bone">
+                            {t?.name}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            {t?.tag}
+                          </span>
+                        </div>
+                        {classification?.[r.teamId] === "qualified" ? (
+                          <span className="ml-1 border border-emerald-500/70 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-300">
+                            Classificado
+                          </span>
+                        ) : null}
+                        {classification?.[r.teamId] === "eliminated" ? (
+                          <span className="ml-1 border border-blood/70 bg-blood/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-blood">
+                            Eliminado
+                          </span>
+                        ) : null}
+                      </div>
+                      <span
+                        className="shrink-0 rounded border border-border/60 bg-black/40 p-1 text-muted-foreground transition-colors hover:border-gold/60 hover:text-gold"
+                        title={isExpanded ? "Ocultar elenco" : "Ver elenco completo"}
+                      >
+                        {isExpanded ? (
+                          <ChevronUp className="h-3.5 w-3.5 text-gold" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
                       </span>
-                    ) : null}
-                  </div>
-                </td>
-                <td
-                  className="px-1 py-2 text-center font-display text-sm tabular-nums text-bone"
-                  title={t ? `Elenco de ${t.name}` : undefined}
-                >
-                  {teamStrength != null ? Math.round(teamStrength) : "—"}
-                </td>
-                <td className="px-2 py-2 text-center font-mono text-xs text-muted-foreground">
-                  {(r.pct * 100).toFixed(0)}%
-                </td>
-              </tr>
+                    </div>
+                  </td>
+                  <td className="px-1 py-2 text-center font-display text-lg text-gold">{r.w}</td>
+                  <td className="px-1 py-2 text-center font-display text-lg text-blood">{r.l}</td>
+                  <td className="px-2 py-2 text-center">
+                    <div className="flex items-center justify-center gap-0.5">
+                      {(last5?.[r.teamId] ?? []).map((res, j) => (
+                        <span
+                          key={j}
+                          className={`inline-block px-1 font-mono text-[10px] font-bold ${
+                            res === "W" ? "bg-emerald-500/80 text-black" : "bg-blood/80 text-bone"
+                          }`}
+                        >
+                          {res}
+                        </span>
+                      ))}
+                      {(last5?.[r.teamId] ?? []).length === 0 ? (
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          —
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td
+                    className="px-1 py-2 text-center font-display text-sm tabular-nums text-bone"
+                    title={t ? `Elenco de ${t.name}` : undefined}
+                  >
+                    {teamStrength != null ? Math.round(teamStrength) : "—"}
+                  </td>
+                  <td className="px-2 py-2 text-center font-mono text-xs text-muted-foreground">
+                    {(r.pct * 100).toFixed(0)}%
+                  </td>
+                </tr>
+                {isExpanded ? (
+                  <tr className="border-t border-gold/30 bg-ink/80">
+                    <td colSpan={7} className="p-0">
+                      <TeamRosterInline team={t} />
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             );
           })}
         </tbody>

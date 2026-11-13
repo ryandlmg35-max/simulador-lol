@@ -26,6 +26,9 @@ import { Dices } from "lucide-react";
 import { isInternationalChamp, useStore } from "@/lib/lol/store";
 import { TransferWindowFeed } from "@/components/lol/transfer-window-feed";
 import { StandingsTable } from "@/components/lol/standings";
+import { TeamLogo } from "@/components/lol/team-logo";
+import { TeamRosterInline } from "@/components/lol/team-roster-inline";
+import { rosterStrength } from "@/lib/lol/players";
 import { PlayInClassification } from "@/components/lol/play-in-classification";
 import { MatchCard } from "@/components/lol/match-card";
 import { BracketView } from "@/components/lol/bracket-view";
@@ -93,6 +96,8 @@ function ChampionshipPage() {
   const championship = getChampionship(id);
   const isIntl = championship ? isInternationalChamp(championship) : false;
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
+  const [showTeamsTab, setShowTeamsTab] = useState(false);
+  const [expandedRosterTeamId, setExpandedRosterTeamId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [savingHistory, setSavingHistory] = useState(false);
   const [splitLabel, setSplitLabel] = useState("");
@@ -805,9 +810,12 @@ function ChampionshipPage() {
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setActivePhaseId(p.id)}
+                onClick={() => {
+                  setShowTeamsTab(false);
+                  setActivePhaseId(p.id);
+                }}
                 className={`rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                  p.id === currentPhaseId
+                  !showTeamsTab && p.id === currentPhaseId
                     ? "bg-primary text-primary-foreground"
                     : "border border-border bg-muted/30 text-muted-foreground hover:bg-muted/60"
                 }`}
@@ -821,6 +829,18 @@ function ChampionshipPage() {
                 ) : null}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setShowTeamsTab(true)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                showTeamsTab
+                  ? "bg-gold text-ink"
+                  : "border border-gold/40 bg-gold/10 text-gold hover:bg-gold/20"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              Times ({poolTeams.length})
+            </button>
             {poolPhases.length === 0 ? (
               <span className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-1.5 text-xs uppercase tracking-widest text-muted-foreground">
                 Nenhuma fase nesta série — adicione em Editar
@@ -856,7 +876,71 @@ function ChampionshipPage() {
       </section>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        {currentPhase ? (
+        {showTeamsTab ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gold/30 pb-3">
+              <div>
+                <h2 className="font-display text-lg font-semibold uppercase tracking-wider text-gold">
+                  Times &amp; Elencos ({poolTeams.length})
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Clique em qualquer time para expandir e ver foto, nome, nacionalidade e atributos dos jogadores.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {poolTeams.map((t) => {
+                const isExpanded = expandedRosterTeamId === t.id;
+                const strength = rosterStrength(t.roster);
+                return (
+                  <div
+                    key={t.id}
+                    className="overflow-hidden border-2 border-ink bg-card shadow-[3px_3px_0_0_var(--ink)]"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedRosterTeamId(isExpanded ? null : t.id)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-gold/10"
+                    >
+                      <div className="flex items-center gap-3">
+                        <TeamLogo team={t} size={32} />
+                        <div>
+                          <div className="font-display text-base uppercase tracking-wider text-bone">
+                            {t.name}
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                            <span>{t.tag}</span>
+                            {t.region ? <span>· {t.region}</span> : null}
+                            {t.coach ? <span>· Técnico: {t.coach}</span> : null}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {strength != null ? (
+                          <span className="border border-gold/40 bg-gold/10 px-2 py-0.5 font-display text-xs text-gold">
+                            EL {Math.round(strength)}
+                          </span>
+                        ) : null}
+                        <span className="rounded border border-border/60 bg-black/40 p-1.5 text-muted-foreground">
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-gold" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </span>
+                      </div>
+                    </button>
+                    {isExpanded ? (
+                      <div className="border-t border-gold/30">
+                        <TeamRosterInline team={t} />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : currentPhase ? (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
