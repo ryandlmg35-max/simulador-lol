@@ -50,7 +50,10 @@ function RankingPage() {
 
   // ---------- RANKING DE CARREIRA (permanente — nunca recalculado) ----------
   const table = career[game] ?? {};
-  const careerTeams = Object.values(table).filter((t) => t.played > 0 || t.points !== 0);
+  const isNationalTeamName = (name: string) => /^sele[cç][aã]o\b/i.test(name.trim());
+  const careerTeams = Object.values(table).filter(
+    (t) => (t.played > 0 || t.points !== 0) && !isNationalTeamName(t.name),
+  );
 
   const sortedRanking = [...careerTeams].sort(
     (a, b) => b.points - a.points || b.titles - a.titles || b.wins - a.wins,
@@ -83,11 +86,30 @@ function RankingPage() {
   };
 
   // ---------- Pódio (lista permanente de títulos creditados) ----------
+  const isWorldCupTitle = (champName: string) =>
+    /copa do mundo|world cup|seleções|selecoes/i.test(champName);
   const podium = new Map<
     string,
     { label: string; teamName: string; teamTag?: string; teamLogo?: string }[]
   >();
+  const worldCupPodium: {
+    champName: string;
+    label: string;
+    teamName: string;
+    teamTag?: string;
+    teamLogo?: string;
+  }[] = [];
   for (const t of career.titles ?? []) {
+    if (isWorldCupTitle(t.champName)) {
+      worldCupPodium.push({
+        champName: t.champName,
+        label: t.label,
+        teamName: t.teamName,
+        teamTag: t.teamTag,
+        teamLogo: t.teamLogo,
+      });
+      continue;
+    }
     const champKey = canonicalTournamentName(t.champName);
     const arr = podium.get(champKey) || [];
     arr.push({ label: t.label, teamName: t.teamName, teamTag: t.teamTag, teamLogo: t.teamLogo });
@@ -400,6 +422,56 @@ function RankingPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </section>
+
+        {/* Pódio Exclusivo · Copa do Mundo de Seleções */}
+        <section>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b-2 border-sky-400/40 pb-2">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🌍</span>
+              <h2 className="font-display text-3xl uppercase tracking-widest text-sky-300">
+                Pódio · Copa do Mundo de Seleções
+              </h2>
+            </div>
+            <span className="border border-sky-400/40 bg-sky-500/10 px-3 py-1 font-display text-[11px] uppercase tracking-widest text-sky-200">
+              Separado do Ranking de Clubes & Ligas
+            </span>
+          </div>
+          {worldCupPodium.length === 0 ? (
+            <div className="border border-dashed border-sky-400/30 bg-sky-500/5 p-8 text-center text-sm text-muted-foreground">
+              Nenhuma seleção campeã registrada ainda. Conclua uma Copa do Mundo de Seleções e salve
+              a campeã para consagrá-la aqui sem misturar com o ranking de clubes.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {worldCupPodium.map((w, i) => (
+                <div
+                  key={`${w.champName}-${w.label}-${i}`}
+                  className="flex items-center justify-between border-2 border-sky-400/50 bg-card p-4 shadow-[4px_4px_0_0_#38bdf8]"
+                >
+                  <div className="flex items-center gap-3">
+                    <TeamLogo
+                      team={teamFromCareer({
+                        name: w.teamName,
+                        tag: w.teamTag,
+                        logo: w.teamLogo,
+                      })}
+                      size={40}
+                    />
+                    <div>
+                      <div className="font-display text-lg uppercase tracking-widest text-bone">
+                        {w.teamName}
+                      </div>
+                      <div className="text-[11px] uppercase tracking-widest text-sky-300">
+                        {w.champName} · {w.label || "Campeão"}
+                      </div>
+                    </div>
+                  </div>
+                  <Trophy className="h-6 w-6 text-sky-300 shrink-0" />
+                </div>
+              ))}
             </div>
           )}
         </section>

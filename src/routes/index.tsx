@@ -29,6 +29,7 @@ function Index() {
   // os resultados delas de uma vez (arquivo, elencos e carreira intactos).
   const [resetMode, setResetMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<"clubs" | "worldcup">("clubs");
   const [superBackupOpen, setSuperBackupOpen] = useState(false);
   const backupInputRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
@@ -133,10 +134,16 @@ function Index() {
   const activeGame = GAMES.find((g) => g.id === game) ?? GAMES[0];
   // Mais recentes primeiro: o split/edição que você acabou de usar fica no
   // topo — sem confundir com a edição antiga de mesmo nome.
-  const visible = championships
+  const isWorldCupChamp = (c: { name?: string; logo?: string }) =>
+    /copa do mundo|world cup|seleções|selecoes/i.test(c.name ?? "") ||
+    c.logo === "/logos/world-cup-lol.jpg";
+  const allVisible = championships
     .filter((c) => (c.game ?? "lol") === game)
     .slice()
     .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+  const clubVisible = allVisible.filter((c) => !isWorldCupChamp(c));
+  const worldCupVisible = allVisible.filter((c) => isWorldCupChamp(c));
+  const visible = activeTab === "worldcup" ? worldCupVisible : clubVisible;
   const championshipGroups = Array.from(
     visible.reduce((groups, championship) => {
       const key = championship.name.trim().toLowerCase();
@@ -276,11 +283,54 @@ function Index() {
       </section>
 
       <main className="mx-auto max-w-6xl px-6 py-12">
+        {/* Abas separadas: Ligas & Torneios de Clubes vs Copa do Mundo de Seleções */}
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("clubs");
+              if (resetMode) exitResetMode();
+            }}
+            className={`flex items-center gap-2 border-2 px-4 py-2 font-display text-xs uppercase tracking-[0.2em] transition-all ${
+              activeTab === "clubs"
+                ? "border-gold bg-gold/15 text-gold shadow-[3px_3px_0_0_var(--gold)]"
+                : "border-gold/25 bg-black/40 text-muted-foreground hover:border-gold/50 hover:text-bone"
+            }`}
+          >
+            <span>🏛️ Ligas & Torneios</span>
+            <span className="rounded bg-black/50 px-1.5 py-0.5 font-mono text-[10px]">
+              {hydrated ? clubVisible.length : "—"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("worldcup");
+              if (resetMode) exitResetMode();
+            }}
+            className={`flex items-center gap-2 border-2 px-4 py-2 font-display text-xs uppercase tracking-[0.2em] transition-all ${
+              activeTab === "worldcup"
+                ? "border-sky-400 bg-sky-500/15 text-sky-300 shadow-[3px_3px_0_0_#38bdf8]"
+                : "border-sky-400/25 bg-black/40 text-muted-foreground hover:border-sky-400/50 hover:text-bone"
+            }`}
+          >
+            <span>🌍 Copa do Mundo de Seleções</span>
+            <span className="rounded bg-black/50 px-1.5 py-0.5 font-mono text-[10px]">
+              {hydrated ? worldCupVisible.length : "—"}
+            </span>
+          </button>
+        </div>
+
         <div className="mb-8 flex items-end justify-between border-b border-gold/30 pb-3">
           <div className="flex items-center gap-4">
-            <span className="h-8 w-1.5" style={{ background: activeGame.accent }} />
+            <span
+              className="h-8 w-1.5"
+              style={{ background: activeTab === "worldcup" ? "#38bdf8" : activeGame.accent }}
+            />
             <h2 className="font-display text-3xl uppercase tracking-[0.18em] text-bone">
-              Campeonatos {isCs2 ? "CS2" : "LoL"}
+              {activeTab === "worldcup"
+                ? `Copa do Mundo de Seleções ${isCs2 ? "CS2" : "LoL"}`
+                : `Campeonatos ${isCs2 ? "CS2" : "LoL"}`}
             </h2>
           </div>
           <div className="flex items-center gap-3">
@@ -314,19 +364,25 @@ function Index() {
               <Trophy className="h-9 w-9 -rotate-45 text-gold" strokeWidth={1.5} />
             </div>
             <h3 className="mt-6 font-display text-3xl uppercase tracking-[0.18em] text-bone">
-              Nenhum campeonato ainda
+              {activeTab === "worldcup"
+                ? "Nenhuma Copa do Mundo criada ainda"
+                : "Nenhum campeonato ainda"}
             </h3>
             <p className="mx-auto mt-2 max-w-md text-muted-foreground">
-              Você define nome, times, fases, formato de jogo — tudo do zero.
+              {activeTab === "worldcup"
+                ? "Torneio de elite de fim de ano entre seleções nacionais, com convocação automática por desempenho e 100% de jogadores nativos."
+                : "Você define nome, times, fases, formato de jogo — tudo do zero."}
             </p>
             <Link
               to="/create"
               search={{ game }}
               className="slant-r sheen relative mt-8 inline-flex items-center gap-2 overflow-hidden px-8 py-4 font-display text-xl uppercase tracking-widest text-bone transition-transform hover:-translate-y-0.5"
-              style={{ background: activeGame.accent }}
+              style={{ background: activeTab === "worldcup" ? "#0284c7" : activeGame.accent }}
             >
               <Plus className="h-5 w-5" strokeWidth={3} />
-              Criar meu primeiro campeonato
+              {activeTab === "worldcup"
+                ? "Criar Copa do Mundo de Seleções"
+                : "Criar meu primeiro campeonato"}
             </Link>
           </div>
         ) : (

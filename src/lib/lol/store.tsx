@@ -264,6 +264,8 @@ function creditMatch(
   isPlayoff: boolean,
 ): CareerLedger {
   if ((c.countsTowardsRanking ?? true) === false) return ledger;
+  // Copa do Mundo de Seleções não pontua no ranking de clubes nem nas vagas internacionais
+  if (isWorldCupChamp(c)) return ledger;
   if (!match.teamAId || !match.teamBId || match.bye) return ledger;
   const key = `m:${c.id}:${match.id}`;
   if (ledger.seen?.[key]) return ledger;
@@ -441,8 +443,6 @@ function creditBonus(
   team: Team | { name: string; tag?: string; logo?: string; region?: string },
 ): CareerLedger {
   if ((c.countsTowardsRanking ?? true) === false) return ledger;
-  // Nome canônico do torneio (MSI 2026 -> Mid-Season Invitational (MSI), Worlds 2026 -> World Championship (Worlds))
-  // garante que edições futuras agrupem no mesmo torneio histórico em vez de criar um título isolado.
   const canonicalName = canonicalTournamentName(c.name);
   const canonicalLabel =
     /^(atual|campeão)$/i.test(label.trim()) && c.season
@@ -517,11 +517,14 @@ function creditBonus(
       };
     }
   }
-  entry.tag = entry.tag ?? team.tag;
-  entry.logo = entry.logo ?? team.logo;
-  entry.region = entry.region ?? (team.region || c.region || inferTeamRegion(team.name));
-  table[normKey(team.name)] = entry;
-  next[game] = table;
+  // Seleções da Copa do Mundo vão apenas para o Pódio (next.titles), nunca para o ranking de clubes
+  if (!isWorldCupChamp(c)) {
+    entry.tag = entry.tag ?? team.tag;
+    entry.logo = entry.logo ?? team.logo;
+    entry.region = entry.region ?? (team.region || c.region || inferTeamRegion(team.name));
+    table[normKey(team.name)] = entry;
+    next[game] = table;
+  }
 
   // ---------- Desempenho INTERNACIONAL da região (Copa do Mundo de Seleções não altera vagas de clubes) ----------
   let result = next;
@@ -1169,7 +1172,10 @@ function revertPhaseEffects(
  * no MSI/Worlds fica salvo na liga local e vice-versa!).
  */
 function isWorldCupChamp(c: Championship): boolean {
-  return /copa do mundo|world cup|seleções|selecoes/i.test(c.name ?? "");
+  return (
+    /copa do mundo|world cup|seleções|selecoes/i.test(c.name ?? "") ||
+    c.logo === "/logos/world-cup-lol.jpg"
+  );
 }
 
 function clampAttr0100(v: number): number {
