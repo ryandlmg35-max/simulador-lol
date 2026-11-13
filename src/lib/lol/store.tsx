@@ -1168,11 +1168,130 @@ function revertPhaseEffects(
  * para todos os outros campeonatos do mesmo jogo (assim o que o time evolui
  * no MSI/Worlds fica salvo na liga local e vice-versa!).
  */
+function isWorldCupChamp(c: Championship): boolean {
+  return /copa do mundo|world cup|seleções|selecoes/i.test(c.name ?? "");
+}
+
+function clampAttr0100(v: number): number {
+  return Math.max(0, Math.min(100, Math.round(v)));
+}
+
+function applyWorldCupFinalClubBonus(
+  list: Championship[],
+  worldCupChamp: Championship,
+  championNation: Team,
+  runnerUpNation?: Team,
+): Championship[] {
+  const champStarterKeys = new Set(
+    (championNation.roster ?? [])
+      .filter((p) => !p.sub)
+      .map((p) => `${normKey(p.ign)}|${p.role}`),
+  );
+  const runnerStarterKeys = new Set(
+    (runnerUpNation?.roster ?? [])
+      .filter((p) => !p.sub)
+      .map((p) => `${normKey(p.ign)}|${p.role}`),
+  );
+
+  const boostPlayer = (p: Player): Player => {
+    const key = `${normKey(p.ign)}|${p.role}`;
+    if (champStarterKeys.has(key)) {
+      return {
+        ...p,
+        attrs: {
+          ...p.attrs,
+          mechanics: clampAttr0100(p.attrs.mechanics + 1),
+          clutch: clampAttr0100(p.attrs.clutch + 2),
+          mentality: clampAttr0100((p.attrs.mentality ?? 65) + 1),
+          intlExperience: clampAttr0100((p.attrs.intlExperience ?? 50) + 2),
+        },
+      };
+    }
+    if (runnerStarterKeys.has(key)) {
+      return {
+        ...p,
+        attrs: {
+          ...p.attrs,
+          clutch: clampAttr0100(p.attrs.clutch + 1),
+          intlExperience: clampAttr0100((p.attrs.intlExperience ?? 50) + 1),
+        },
+      };
+    }
+    return p;
+  };
+
+  const patchClub = (t: Team): Team => {
+    const roster = t.roster ?? [];
+    let champCount = 0;
+    let runnerCount = 0;
+    const nextRoster = roster.map((p) => {
+      const key = `${normKey(p.ign)}|${p.role}`;
+      if (champStarterKeys.has(key)) champCount += 1;
+      else if (runnerStarterKeys.has(key)) runnerCount += 1;
+      return boostPlayer(p);
+    });
+    if (champCount === 0 && runnerCount === 0) return t;
+    const currentBudget = t.budget ?? 1000;
+    const budgetBonus = champCount * 250 + runnerCount * 120;
+    const cultureBonus = champCount * 4 + runnerCount * 2;
+    return {
+      ...t,
+      roster: nextRoster,
+      budget: currentBudget + budgetBonus,
+      culture: clampAttr0100((t.culture ?? 50) + cultureBonus),
+    };
+  };
+
+  return list.map((c) => {
+    if (c.id === worldCupChamp.id || (c.game ?? "lol") !== (worldCupChamp.game ?? "lol")) return c;
+    if (isWorldCupChamp(c)) return c;
+    return {
+      ...c,
+      teams: c.teams.map(patchClub),
+      serieB: c.serieB ? { ...c.serieB, teams: c.serieB.teams.map(patchClub) } : undefined,
+    };
+  });
+}
+
 function syncTeamRostersAcrossChampionships(
   list: Championship[],
   source: Championship,
 ): Championship[] {
   const game = source.game ?? "lol";
+
+  // Na Copa do Mundo, os jogadores defendem seleções nacionais: sincroniza a evolução
+  // dos atributos (mechanics, clutch, intlExperience, etc.) de volta para seus clubes!
+  if (isWorldCupChamp(source)) {
+    const playerByKey = new Map<string, Player>();
+    for (const t of source.teams) {
+      for (const p of t.roster ?? []) {
+        playerByKey.set(`${normKey(p.ign)}|${p.role}`, p);
+      }
+    }
+    if (playerByKey.size === 0) return list;
+
+    const patchClubRoster = (t: Team): Team => {
+      if (!t.roster || t.roster.length === 0) return t;
+      let changed = false;
+      const nextRoster = t.roster.map((p) => {
+        const ref = playerByKey.get(`${normKey(p.ign)}|${p.role}`);
+        if (!ref) return p;
+        changed = true;
+        return { ...p, attrs: ref.attrs };
+      });
+      return changed ? { ...t, roster: nextRoster } : t;
+    };
+
+    return list.map((c) => {
+      if (c.id === source.id || (c.game ?? "lol") !== game || isWorldCupChamp(c)) return c;
+      return {
+        ...c,
+        teams: c.teams.map(patchClubRoster),
+        serieB: c.serieB ? { ...c.serieB, teams: c.serieB.teams.map(patchClubRoster) } : undefined,
+      };
+    });
+  }
+
   const byName = new Map<string, Team>();
   for (const t of [...source.teams, ...(source.serieB?.teams ?? [])]) {
     if (t.name && t.roster && t.roster.length > 0) {
@@ -1813,7 +1932,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return updated;
         });
         const targetChamp = nextList.find((x) => x.id === championshipId);
-        return targetChamp ? syncTeamRostersAcrossChampionships(nextList, targetChamp) : nextList;
+        let synced = targetChamp ? syncTeamRostersAcrossChampionships(nextList, targetChamp) : nextList;
+        if (targetChamp && isWorldCupChamp(targetChamp) && winnerId) {
+          const lastBracket = [...targetChamp.phases].reverse().find((p) => p.kind === "bracket");
+          const decisive = lastBracket
+            ? [...lastBracket.matches].sort(
+                (a, b) => decisivePriority(b) - decisivePriority(a) || (b.round ?? 0) - (a.round ?? 0),
+              )[0]
+            : null;
+          if (decisive?.id === matchId && decisive.teamAId && decisive.teamBId) {
+            const championNation = targetChamp.teams.find((t) => t.id === winnerId);
+            const runnerId = winnerId === decisive.teamAId ? decisive.teamBId : decisive.teamAId;
+            const runnerNation = targetChamp.teams.find((t) => t.id === runnerId);
+            if (championNation) {
+              synced = applyWorldCupFinalClubBonus(synced, targetChamp, championNation, runnerNation);
+            }
+          }
+        }
+        return synced;
       });
     },
     [],
@@ -2042,7 +2178,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         const targetChamp = nextList.find((x) => x.id === championshipId);
-        return targetChamp ? syncTeamRostersAcrossChampionships(nextList, targetChamp) : nextList;
+        let synced = targetChamp ? syncTeamRostersAcrossChampionships(nextList, targetChamp) : nextList;
+        if (targetChamp && isWorldCupChamp(targetChamp)) {
+          const lastBracket = [...targetChamp.phases].reverse().find((p) => p.kind === "bracket");
+          const decisive = lastBracket
+            ? [...lastBracket.matches].sort(
+                (a, b) => decisivePriority(b) - decisivePriority(a) || (b.round ?? 0) - (a.round ?? 0),
+              )[0]
+            : null;
+          const finalRes = decisive ? results.find((r) => r.matchId === decisive.id) : undefined;
+          if (decisive && finalRes?.winnerId && decisive.teamAId && decisive.teamBId) {
+            const championNation = targetChamp.teams.find((t) => t.id === finalRes.winnerId);
+            const runnerId =
+              finalRes.winnerId === decisive.teamAId ? decisive.teamBId : decisive.teamAId;
+            const runnerNation = targetChamp.teams.find((t) => t.id === runnerId);
+            if (championNation) {
+              synced = applyWorldCupFinalClubBonus(synced, targetChamp, championNation, runnerNation);
+            }
+          }
+        }
+        return synced;
       });
     },
     [],
