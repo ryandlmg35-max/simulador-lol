@@ -35,11 +35,19 @@ interface FinishedMapSummary {
   mvpName?: string;
 }
 
+interface MapStepSnapshot {
+  inGameA: number;
+  inGameB: number;
+  clockMins: number;
+  liveProbA: number;
+}
+
 interface MapPlan {
   mapNumber: number;
   winnerSide: "A" | "B";
   gameProbA: number;
   isSilverScrapes: boolean;
+  isComeback: boolean;
   adaptNote?: string;
   durationMins: number;
   targetKillsA: number;
@@ -47,6 +55,7 @@ interface MapPlan {
   targetRoundsA: number;
   targetRoundsB: number;
   mvpName?: string;
+  snapshots: MapStepSnapshot[]; // índice 0..10
   events: { atStep: number; timeLabel: string; side: "A" | "B" | "neutral"; text: string; important?: boolean }[];
 }
 
@@ -56,6 +65,18 @@ function pickStarPlayer(team: Team, preferAttr: keyof Player["attrs"] = "mechani
   const starters = pickStarters(roster);
   const pool = starters.length > 0 ? starters : roster;
   return [...pool].sort((a, b) => (b.attrs[preferAttr] ?? 60) - (a.attrs[preferAttr] ?? 60))[0];
+}
+
+function pickRandomStarter(team: Team): Player | undefined {
+  const roster = ensureRoster(team);
+  if (!roster || roster.length === 0) return undefined;
+  const starters = pickStarters(roster);
+  const pool = starters.length > 0 ? starters : roster;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function clampProb(p: number): number {
+  return Math.max(0.06, Math.min(0.94, p));
 }
 
 function buildMapPlan(params: {
@@ -107,27 +128,77 @@ function buildMapPlan(params: {
     gameProbA += clutchEdge + mentEdge;
   }
 
-  gameProbA = Math.max(0.05, Math.min(0.95, gameProbA));
-  const winnerSide: "A" | "B" = Math.random() < gameProbA ? "A" : "B";
+  gameProbA = Math.max(0.08, Math.min(0.92, gameProbA));
+
+  // ---------- SIMULAÇÃO DINÂMICA POR FASES DO MAPA ----------
+  // Em vez de definir tudo de forma linear, simulamos Early -> Mid -> Late.
+  // Um time pode abrir 7x2 no início e ainda assim sofrer virada no Barão/Ancião!
+  const aggroEdgeA = attrsA && attrsB ? ((attrsA.aggression - attrsB.aggression) / 100) * 0.14 : 0;
+  const iqEdgeA = attrsA && attrsB ? ((attrsA.gameIq - attrsB.gameIq) / 100) * 0.14 : 0;
+  const clutchEdgeA = attrsA && attrsB ? ((attrsA.clutch - attrsB.clutch) / 100) * 0.16 : 0;
+
+  // Fator de ritmo/script do mapa:
+  // "comeback" (~30%), "brawl" (~25%), "tactical" (~25%), "stomp" (~20%)
+  const roll = Math.random();
+  const archetype: "comeback" | "brawl" | "tactical" | "stomp" =
+    roll < 0.30 ? "comeback" : roll < 0.55 ? "brawl" : roll < 0.80 ? "tactical" : "stomp";
+
+  const earlyProbA = clampProb(gameProbA + aggroEdgeA + (Math.random() - 0.5) * 0.22);
+  const earlyLeader: "A" | "B" = Math.random() < earlyProbA ? "A" : "B";
+  const earlyTrailer: "A" | "B" = earlyLeader === "A" ? "B" : "A";
+
+  let midLeader: "A" | "B" = earlyLeader;
+  let winnerSide: "A" | "B";
+
+  if (archetype === "stomp") {
+    // Snowball limpo do líder inicial (mas ainda com pequena chance de susto)
+    winnerSide = Math.random() < 0.9 ? earlyLeader : earlyTrailer;
+  } else if (archetype === "comeback") {
+    // O time que saiu atrás escala melhor ou força erro no mid/late
+    const trailerIsA = earlyTrailer === "A";
+    const comebackBonus = trailerIsA
+      ? gameProbA + clutchEdgeA + iqEdgeA * 0.5
+      : 1 - gameProbA - clutchEdgeA - iqEdgeA * 0.5;
+    // Se o time que saiu atrás tem boa base/clutch, vira com frequência!
+    winnerSide = Math.random() < clampProb(0.55 + (comebackBonus - 0.5) * 0.5) ? earlyTrailer : earlyLeader;
+    midLeader = Math.random() < 0.6 ? earlyLeader : earlyTrailer;
+  } else if (archetype === "brawl") {
+    // Jogo caótico e equilibrado, alternando liderança no mid
+    midLeader = Math.random() < 0.5 ? earlyTrailer : earlyLeader;
+    const lateProbA = clampProb(gameProbA + clutchEdgeA + (midLeader === "A" ? 0.05 : -0.05));
+    winnerSide = Math.random() < lateProbA ? "A" : "B";
+  } else {
+    // Jogo tático decidido no macro e objetivos neutros
+    const midProbA = clampProb(gameProbA + iqEdgeA);
+    midLeader = Math.random() < midProbA ? "A" : "B";
+    const lateProbA = clampProb(gameProbA + iqEdgeA * 0.6 + clutchEdgeA * 0.8 + (midLeader === "A" ? 0.08 : -0.08));
+    winnerSide = Math.random() < lateProbA ? "A" : "B";
+  }
+
+  const isComeback = earlyLeader !== winnerSide;
   const winnerTeam = winnerSide === "A" ? teamA : teamB;
   const loserTeam = winnerSide === "A" ? teamB : teamA;
+  const earlyLeaderTeam = earlyLeader === "A" ? teamA : teamB;
+  const earlyTrailerTeam = earlyTrailer === "A" ? teamA : teamB;
 
   const starAggroW = pickStarPlayer(winnerTeam, "aggression");
   const starClutchW = pickStarPlayer(winnerTeam, "clutch");
   const starIqW = pickStarPlayer(winnerTeam, "gameIq");
   const starAggroL = pickStarPlayer(loserTeam, "aggression");
+  const starClutchL = pickStarPlayer(loserTeam, "clutch");
+  const randomWinnerPlayer = pickRandomStarter(winnerTeam);
+  const randomLoserPlayer = pickRandomStarter(loserTeam);
 
-  const durationMins = 28 + Math.floor(Math.random() * 14);
-  const winKills = 14 + Math.floor(Math.random() * 12);
-  const loseKills = Math.max(3, winKills - 4 - Math.floor(Math.random() * 8));
-  const targetKillsA = winnerSide === "A" ? winKills : loseKills;
-  const targetKillsB = winnerSide === "B" ? winKills : loseKills;
-
-  const loseRounds = 5 + Math.floor(Math.random() * 7);
-  const targetRoundsA = winnerSide === "A" ? 13 : loseRounds;
-  const targetRoundsB = winnerSide === "B" ? 13 : loseRounds;
+  const durationMins = isCs2
+    ? 34 + Math.floor(Math.random() * 14)
+    : archetype === "stomp"
+      ? 25 + Math.floor(Math.random() * 6)
+      : archetype === "brawl" || isComeback
+        ? 34 + Math.floor(Math.random() * 12)
+        : 29 + Math.floor(Math.random() * 9);
 
   const events: MapPlan["events"] = [];
+  const snapshots: MapStepSnapshot[] = [];
 
   if (isSilverScrapes) {
     events.push({
@@ -153,58 +224,301 @@ function buildMapPlan(params: {
     });
   }
 
+  let targetKillsA = 0;
+  let targetKillsB = 0;
+  let targetRoundsA = 0;
+  let targetRoundsB = 0;
+
   if (isCs2) {
-    const firstSide: "A" | "B" = Math.random() < 0.55 ? winnerSide : winnerSide === "A" ? "B" : "A";
-    const firstTeam = firstSide === "A" ? teamA : teamB;
-    const firstPlayer = firstSide === "A" ? starAggroW : starAggroL;
+    const overtime = archetype === "brawl" || (isComeback && Math.random() < 0.45);
+    const winRounds = overtime ? 16 : 13;
+    const loseRounds = overtime
+      ? 12 + Math.floor(Math.random() * 3)
+      : archetype === "stomp"
+        ? 4 + Math.floor(Math.random() * 4)
+        : 8 + Math.floor(Math.random() * 4);
+
+    targetRoundsA = winnerSide === "A" ? winRounds : loseRounds;
+    targetRoundsB = winnerSide === "B" ? winRounds : loseRounds;
+
+    // Constrói progressão realista de rounds em 10 passos (ex: líder inicial abre 7x3 e sofre virada para 11x13)
+    const halfWinEarly = isComeback ? 8 + Math.floor(Math.random() * 2) : archetype === "stomp" ? 9 : 6 + Math.floor(Math.random() * 2);
+    const halfLoseEarly = 12 - halfWinEarly;
+    const halfA = earlyLeader === "A" ? halfWinEarly : halfLoseEarly;
+    const halfB = earlyLeader === "B" ? halfWinEarly : halfLoseEarly;
+
+    for (let s = 0; s <= 10; s++) {
+      let rA = 0;
+      let rB = 0;
+      if (s <= 5) {
+        const t = s / 5;
+        rA = Math.round(halfA * t);
+        rB = Math.round(halfB * t);
+      } else {
+        const t = (s - 5) / 5;
+        rA = Math.round(halfA + (targetRoundsA - halfA) * t);
+        rB = Math.round(halfB + (targetRoundsB - halfB) * t);
+      }
+      const roundDiff = rA - rB;
+      const liveProbA = s === 10
+        ? (winnerSide === "A" ? 0.99 : 0.01)
+        : clampProb(gameProbA + roundDiff * 0.045);
+      snapshots.push({
+        inGameA: rA,
+        inGameB: rB,
+        clockMins: Math.round((durationMins * s) / 10),
+        liveProbA,
+      });
+    }
+
+    const firstPlayer = earlyLeader === winnerSide ? starAggroW : starAggroL;
     events.push({
-      atStep: 3,
-      timeLabel: "R4",
-      side: firstSide,
-      text: `${firstTeam.tag} vence o Pistol e abre vantagem!${firstPlayer ? ` Destaque inicial para ${firstPlayer.ign}.` : ""}`,
+      atStep: 2,
+      timeLabel: "R3",
+      side: earlyLeader,
+      text: `🔫 ${earlyLeaderTeam.tag} vence o Pistol e os ecos iniciais!${firstPlayer ? ` ${firstPlayer.ign} abre 3 abates rápidos.` : ""}`,
     });
-    events.push({
-      atStep: 6,
-      timeLabel: "R13",
-      side: winnerSide,
-      text: `${starClutchW ? `${starClutchW.ign} garante clutch absurdo` : winnerTeam.tag} vira a metade e assume o controle do mapa!`,
-      important: true,
-    });
+
+    if (isComeback) {
+      events.push({
+        atStep: 5,
+        timeLabel: "R12",
+        side: earlyLeader,
+        text: `📊 Fim de metade: ${earlyLeaderTeam.tag} abre vantagem de ${Math.max(halfA, halfB)}×${Math.min(halfA, halfB)} na troca de lados.`,
+      });
+      events.push({
+        atStep: 7,
+        timeLabel: `R${Math.min(22, halfA + halfB + 5)}`,
+        side: winnerSide,
+        text: `🔥 VIRADA EM CURSO! ${starClutchW ? `${starClutchW.ign} vence 1v3 impossível no eco` : `${winnerTeam.tag} encaixa 5 rounds seguidos`} e quebra a economia rival!`,
+        important: true,
+      });
+    } else {
+      events.push({
+        atStep: 5,
+        timeLabel: "R12",
+        side: midLeader,
+        text: `🔄 Virada de lado equilibrada (${halfA}×${halfB})! Tudo aberto para a segunda metade.`,
+      });
+      events.push({
+        atStep: 7,
+        timeLabel: `R${Math.min(22, halfA + halfB + 6)}`,
+        side: winnerSide,
+        text: `💣 ${starClutchW ? `${starClutchW.ign} garante clutch decisivo no bombsite` : `${winnerTeam.tag} encaixa execução perfeita`} e assume o controle!`,
+        important: true,
+      });
+    }
+
     events.push({
       atStep: 9,
       timeLabel: `R${targetRoundsA + targetRoundsB - 1}`,
       side: winnerSide,
-      text: `${winnerTeam.tag} fecha o mapa (${targetRoundsA}×${targetRoundsB}) no match point!`,
+      text: overtime
+        ? `⚡ PRORROGAÇÃO ÉPICA! ${winnerTeam.tag} fecha no limite (${targetRoundsA}×${targetRoundsB})!`
+        : `🏆 ${winnerTeam.tag} converte o match point e fecha o mapa (${targetRoundsA}×${targetRoundsB})!`,
       important: true,
     });
   } else {
-    const fbSide: "A" | "B" = Math.random() < 0.6 ? winnerSide : winnerSide === "A" ? "B" : "A";
-    const fbTeam = fbSide === "A" ? teamA : teamB;
-    const fbPlayer = fbSide === "A" ? starAggroW : starAggroL;
+    // ---------- LEAGUE OF LEGENDS: ABATES PASSO A PASSO COM VIRADAS REAIS ----------
+    // Em jogos difíceis ou de virada, o vencedor pode até terminar com MENOS kills que o perdedor
+    // ou virar o placar de kills só nos últimos 10 minutos!
+    const macroStealWin = isComeback && Math.random() < 0.35;
+    let curA = 0;
+    let curB = 0;
+    snapshots.push({ inGameA: 0, inGameB: 0, clockMins: 0, liveProbA: gameProbA });
+
+    const sideKills = (side: "A" | "B", n: number) => {
+      if (side === "A") curA += n;
+      else curB += n;
+    };
+
+    for (let s = 1; s <= 10; s++) {
+      const clockMins = Math.round((durationMins * s) / 10);
+
+      if (s === 1) {
+        // Minuto 3: lane phase tranquila ou invade
+        if (Math.random() < 0.45) sideKills(earlyLeader, 1);
+      } else if (s === 2 || s === 3) {
+        // Early game (6-11 min): quem saiu na frente abre vantagem real em kills
+        const burst = archetype === "stomp" ? 2 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 2);
+        sideKills(earlyLeader, burst);
+        if (Math.random() < 0.45) sideKills(earlyTrailer, 1);
+      } else if (s === 4 || s === 5) {
+        // Mid game inicial (12-18 min)
+        if (isComeback) {
+          // O time que vai perder ainda está na frente! (Ex: 8x3 ou 9x4)
+          sideKills(earlyLeader, 1 + Math.floor(Math.random() * 2));
+          if (Math.random() < 0.6) sideKills(earlyTrailer, 1);
+        } else if (archetype === "brawl") {
+          sideKills("A", 1 + Math.floor(Math.random() * 2));
+          sideKills("B", 1 + Math.floor(Math.random() * 2));
+        } else {
+          sideKills(midLeader, 1 + Math.floor(Math.random() * 2));
+          if (Math.random() < 0.5) sideKills(midLeader === "A" ? "B" : "A", 1);
+        }
+      } else if (s === 6 || s === 7) {
+        // Luta por dragão/barão (20-26 min): ponto de inflexão!
+        if (isComeback) {
+          // Time que estava atrás começa a reagir em teamfights!
+          sideKills(winnerSide, 2 + Math.floor(Math.random() * 3));
+          if (Math.random() < 0.55) sideKills(loserTeam === teamA ? "A" : "B", 1);
+        } else if (archetype === "brawl") {
+          sideKills("A", 2 + Math.floor(Math.random() * 2));
+          sideKills("B", 2 + Math.floor(Math.random() * 2));
+        } else if (archetype === "tactical") {
+          sideKills(winnerSide, 1 + Math.floor(Math.random() * 2));
+          if (Math.random() < 0.4) sideKills(loserTeam === teamA ? "A" : "B", 1);
+        } else {
+          sideKills(winnerSide, 2 + Math.floor(Math.random() * 2));
+        }
+      } else if (s === 8 || s === 9) {
+        // Late game / Barão / Ancião (28-36 min)
+        if (macroStealWin) {
+          // Vence por macro/roubo de Barão + backdoor/base push mesmo sem atropelar em kills
+          sideKills(winnerSide, 1 + Math.floor(Math.random() * 2));
+          sideKills(loserTeam === teamA ? "A" : "B", 1);
+        } else if (isComeback) {
+          // Grande teamfight da virada (ACE / 4 abates)
+          sideKills(winnerSide, 3 + Math.floor(Math.random() * 2));
+          if (Math.random() < 0.4) sideKills(loserTeam === teamA ? "A" : "B", 1);
+        } else {
+          sideKills(winnerSide, 2 + Math.floor(Math.random() * 3));
+          if (archetype === "brawl") sideKills(loserTeam === teamA ? "A" : "B", 1 + Math.floor(Math.random() * 2));
+        }
+      } else if (s === 10) {
+        // Push final pro Nexus
+        sideKills(winnerSide, macroStealWin ? 2 : 3 + Math.floor(Math.random() * 2));
+        if (!macroStealWin && isComeback) {
+          // Garante que uma virada épica termine disputada ou com o vencedor passando à frente no final
+          const winNow = winnerSide === "A" ? curA : curB;
+          const loseNow = winnerSide === "A" ? curB : curA;
+          if (winNow < loseNow - 2) {
+            sideKills(winnerSide, loseNow - winNow);
+          }
+        }
+      }
+
+      const killDiff = curA - curB;
+      let liveProbA: number;
+      if (s === 10) {
+        liveProbA = winnerSide === "A" ? 0.99 : 0.01;
+      } else {
+        // A probabilidade ao vivo reage aos abates atuais + escala conforme se aproxima do late game
+        const killInfluence = killDiff * 0.038;
+        const latePull = s >= 7 ? ((winnerSide === "A" ? 0.14 : -0.14) * ((s - 6) / 3)) : 0;
+        liveProbA = clampProb(gameProbA + killInfluence + latePull);
+      }
+
+      snapshots.push({
+        inGameA: curA,
+        inGameB: curB,
+        clockMins,
+        liveProbA,
+      });
+    }
+
+    targetKillsA = curA;
+    targetKillsB = curB;
+
+    // ---------- NARRAÇÃO VARIADA CONFORME O QUE REALMENTE ACONTECEU ----------
+    const fbPlayer = earlyLeader === winnerSide ? starAggroW : starAggroL;
     events.push({
-      atStep: 3,
-      timeLabel: "04:15",
-      side: fbSide,
-      text: `🩸 FIRST BLOOD! ${fbPlayer ? `${fbPlayer.ign} (${fbTeam.tag})` : fbTeam.tag} abre o placar no início de jogo!`,
+      atStep: 2,
+      timeLabel: `${String(snapshots[2].clockMins).padStart(2, "0")}:15`,
+      side: earlyLeader,
+      text: `🩸 FIRST BLOOD! ${fbPlayer ? `${fbPlayer.ign} (${earlyLeaderTeam.tag})` : earlyLeaderTeam.tag} garante o primeiro abate e pressiona o mapa!`,
     });
-    events.push({
-      atStep: 5,
-      timeLabel: `${Math.round(durationMins * 0.45)}:20`,
-      side: winnerSide,
-      text: `🐉 Luta pelo objetivo! ${starIqW ? `${starIqW.ign} comanda o macro da ${winnerTeam.tag}` : winnerTeam.tag} vence a escaramuça e abre vantagem no ouro.`,
-    });
-    events.push({
-      atStep: 8,
-      timeLabel: `${Math.round(durationMins * 0.78)}:40`,
-      side: winnerSide,
-      text: `👾 BARÃO! ${starClutchW ? `${starClutchW.ign} (Clutch ${starClutchW.attrs.clutch}) brilha na teamfight decisiva` : `${winnerTeam.tag} atropela no Barão`} e marcha para a base!`,
-      important: true,
-    });
+
+    if (isComeback) {
+      const earlyScoreText = `${snapshots[4].inGameA}×${snapshots[4].inGameB}`;
+      events.push({
+        atStep: 4,
+        timeLabel: `${String(snapshots[4].clockMins).padStart(2, "0")}:30`,
+        side: earlyLeader,
+        text: `⚡ Pressão total da ${earlyLeaderTeam.tag}! Abre vantagem (${earlyScoreText}) nos abates e derruba as torres externas.`,
+      });
+      events.push({
+        atStep: 6,
+        timeLabel: `${String(snapshots[6].clockMins).padStart(2, "0")}:45`,
+        side: winnerSide,
+        text: `🛡️ Defesa heróica! ${starClutchW ? `${starClutchW.ign} segura o cerco da ${winnerTeam.tag}` : `${winnerTeam.tag} segura a base`} e pune o avanço rival — o jogo esquenta!`,
+        important: true,
+      });
+      events.push({
+        atStep: 8,
+        timeLabel: `${String(snapshots[8].clockMins).padStart(2, "0")}:20`,
+        side: winnerSide,
+        text: macroStealWin
+          ? `🤯 ROUBO HISTÓRICO DE BARÃO! ${randomWinnerPlayer ? `${randomWinnerPlayer.ign} (${winnerTeam.tag})` : winnerTeam.tag} rouba o objetivo no 50/50 mesmo atrás no placar!`
+          : `🔥 VIRADA INACREDITÁVEL! ${starClutchW ? `${starClutchW.ign} (Clutch ${starClutchW.attrs.clutch}) destrói a teamfight` : `${winnerTeam.tag} aplica ACE`} e vira o momento do jogo!`,
+        important: true,
+      });
+    } else if (archetype === "brawl") {
+      events.push({
+        atStep: 4,
+        timeLabel: `${String(snapshots[4].clockMins).padStart(2, "0")}:10`,
+        side: "neutral",
+        text: `⚔️ Jogo sangrento! ${teamA.tag} e ${teamB.tag} trocam abates sem parar (${snapshots[4].inGameA}×${snapshots[4].inGameB}) pela Alma do Dragão.`,
+      });
+      events.push({
+        atStep: 6,
+        timeLabel: `${String(snapshots[6].clockMins).padStart(2, "0")}:50`,
+        side: earlyTrailer,
+        text: `🐉 ${starClutchL && earlyTrailer !== winnerSide ? starClutchL.ign : earlyTrailerTeam.tag} responde com pickoff no mid e impede o snowball!`,
+      });
+      events.push({
+        atStep: 8,
+        timeLabel: `${String(snapshots[8].clockMins).padStart(2, "0")}:40`,
+        side: winnerSide,
+        text: `👾 DRAGÃO ANCIÃO & BARÃO! ${starClutchW ? `${starClutchW.ign} brilha na luta final` : `${winnerTeam.tag} vence a luta decisiva`} após partida duríssima!`,
+        important: true,
+      });
+    } else if (archetype === "tactical") {
+      events.push({
+        atStep: 5,
+        timeLabel: `${String(snapshots[5].clockMins).padStart(2, "0")}:20`,
+        side: midLeader,
+        text: `🧭 Partida estudada! ${starIqW && midLeader === winnerSide ? `${starIqW.ign} dita o macro da ${winnerTeam.tag}` : `${midLeader === "A" ? teamA.tag : teamB.tag} controla a visão`} no rio (${snapshots[5].inGameA}×${snapshots[5].inGameB}).`,
+      });
+      events.push({
+        atStep: 8,
+        timeLabel: `${String(snapshots[8].clockMins).padStart(2, "0")}:15`,
+        side: winnerSide,
+        text: `👾 BARÃO! ${starClutchW ? `${starClutchW.ign} encontra o engage perfeito` : `${winnerTeam.tag} força o Barão`} e quebra a linha de frente adversária!`,
+        important: true,
+      });
+    } else {
+      events.push({
+        atStep: 5,
+        timeLabel: `${String(snapshots[5].clockMins).padStart(2, "0")}:20`,
+        side: winnerSide,
+        text: `🐉 Controle absoluto! ${starIqW ? `${starIqW.ign} comanda o ritmo da ${winnerTeam.tag}` : winnerTeam.tag} vence a luta no dragão e amplia a vantagem.`,
+      });
+      events.push({
+        atStep: 8,
+        timeLabel: `${String(snapshots[8].clockMins).padStart(2, "0")}:35`,
+        side: winnerSide,
+        text: `👾 BARÃO! ${starClutchW ? `${starClutchW.ign} fecha a porta` : `${winnerTeam.tag} garante o Barão`} e marcha para os inibidores.`,
+        important: true,
+      });
+    }
+
+    const finalDiff = Math.abs(targetKillsA - targetKillsB);
+    const wonBehindInKills =
+      (winnerSide === "A" && targetKillsA < targetKillsB) ||
+      (winnerSide === "B" && targetKillsB < targetKillsA);
+
     events.push({
       atStep: 10,
       timeLabel: `${durationMins}:00`,
       side: winnerSide,
-      text: `💥 NEXUS DESTRUÍDO! ${winnerTeam.tag} vence o Mapa ${mapNumber}!`,
+      text: wonBehindInKills
+        ? `💥 NEXUS DESTRUÍDO! Mesmo atrás nos abates (${targetKillsA}×${targetKillsB}), ${winnerTeam.tag} vence o Mapa ${mapNumber} no macro!`
+        : isComeback
+          ? `💥 VIRADA HISTÓRICA! ${winnerTeam.tag} busca o impossível e vence o Mapa ${mapNumber} (${targetKillsA}×${targetKillsB})!`
+          : finalDiff <= 3
+            ? `💥 NO DETALHE! ${winnerTeam.tag} vence um Mapa ${mapNumber} equilibradíssimo (${targetKillsA}×${targetKillsB})!`
+            : `💥 NEXUS DESTRUÍDO! ${winnerTeam.tag} vence o Mapa ${mapNumber} (${targetKillsA}×${targetKillsB})!`,
       important: true,
     });
   }
@@ -214,13 +528,18 @@ function buildMapPlan(params: {
     winnerSide,
     gameProbA,
     isSilverScrapes,
+    isComeback,
     adaptNote,
     durationMins,
     targetKillsA,
     targetKillsB,
     targetRoundsA,
     targetRoundsB,
-    mvpName: starClutchW?.ign ?? starAggroW?.ign,
+    mvpName:
+      isComeback
+        ? (starClutchW?.ign ?? randomWinnerPlayer?.ign ?? starAggroW?.ign)
+        : (starClutchW?.ign ?? starAggroW?.ign ?? randomLoserPlayer?.ign),
+    snapshots,
     events,
   };
 }
@@ -450,16 +769,17 @@ export function LiveFinalModal({
     onClose();
   };
 
-  // Placar parcial dentro do mapa atual (evolui ao vivo conforme step 0..10)
-  const progress = step / 10;
-  const liveInGameA = isCs2
-    ? Math.min(currentPlan.targetRoundsA, Math.round(currentPlan.targetRoundsA * progress))
-    : Math.round(currentPlan.targetKillsA * progress);
-  const liveInGameB = isCs2
-    ? Math.min(currentPlan.targetRoundsB, Math.round(currentPlan.targetRoundsB * progress))
-    : Math.round(currentPlan.targetKillsB * progress);
-  const liveClockMins = Math.min(currentPlan.durationMins, Math.round(currentPlan.durationMins * progress));
-  const probAPct = Math.round(currentPlan.gameProbA * 100);
+  // Placar parcial e probabilidade dinâmica dentro do mapa atual (step 0..10)
+  const snapshot = currentPlan.snapshots[Math.min(step, currentPlan.snapshots.length - 1)] ?? {
+    inGameA: 0,
+    inGameB: 0,
+    clockMins: 0,
+    liveProbA: currentPlan.gameProbA,
+  };
+  const liveInGameA = snapshot.inGameA;
+  const liveInGameB = snapshot.inGameB;
+  const liveClockMins = snapshot.clockMins;
+  const probAPct = Math.round(snapshot.liveProbA * 100);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
