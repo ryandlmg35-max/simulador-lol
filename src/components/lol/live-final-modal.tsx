@@ -89,9 +89,10 @@ function buildMapPlan(params: {
   teamA: Team;
   teamB: Team;
   isCs2: boolean;
+  isGrandFinal: boolean;
   ctx: MatchSimulationContext;
 }): MapPlan {
-  const { mapNumber, scoreA, scoreB, needed, baseProbA, lastWinner, teamA, teamB, isCs2, ctx } =
+  const { mapNumber, scoreA, scoreB, needed, baseProbA, lastWinner, teamA, teamB, isCs2, isGrandFinal, ctx } =
     params;
 
   let gameProbA = baseProbA;
@@ -220,7 +221,9 @@ function buildMapPlan(params: {
       atStep: 1,
       timeLabel: isCs2 ? "R1" : "00:00",
       side: "neutral",
-      text: `🎬 Começa o Mapa ${mapNumber} da Grande Final!`,
+      text: isGrandFinal
+        ? `🎬 Começa o Mapa ${mapNumber} da Grande Final!`
+        : `🎬 Começa o Mapa ${mapNumber}!`,
     });
   }
 
@@ -550,6 +553,7 @@ export function LiveFinalModal({
   teamA,
   teamB,
   career,
+  isGrandFinal = true,
   onFinish,
   onClose,
 }: {
@@ -558,6 +562,7 @@ export function LiveFinalModal({
   teamA: Team;
   teamB: Team;
   career?: Record<string, CareerTeam>;
+  isGrandFinal?: boolean;
   onFinish: (winnerId: string, score: { a: number; b: number }) => void;
   onClose: () => void;
 }) {
@@ -581,7 +586,7 @@ export function LiveFinalModal({
     const ctx: MatchSimulationContext = {
       isIntl: !!isIntl,
       isPlayoff: true,
-      isFinal: true,
+      isFinal: isGrandFinal,
       rosterA: ensureRoster(teamA),
       rosterB: ensureRoster(teamB),
       teamA,
@@ -622,6 +627,7 @@ export function LiveFinalModal({
       teamA,
       teamB,
       isCs2,
+      isGrandFinal,
       ctx: simContext.ctx,
     }),
   );
@@ -686,6 +692,7 @@ export function LiveFinalModal({
                 teamA,
                 teamB,
                 isCs2,
+                isGrandFinal,
                 ctx: simContext.ctx,
               }),
             );
@@ -696,7 +703,9 @@ export function LiveFinalModal({
                 id: `champ-${Date.now()}`,
                 timeLabel: "FIM DE JOGO",
                 side: currentPlan.winnerSide,
-                text: `🏆 ${winTeam.name.toUpperCase()} VENCE A GRANDE FINAL POR ${newA} × ${newB} E CONQUISTA O TÍTULO!`,
+                text: isGrandFinal
+                  ? `🏆 ${winTeam.name.toUpperCase()} VENCE A GRANDE FINAL POR ${newA} × ${newB} E CONQUISTA O TÍTULO!`
+                  : `🏆 ${winTeam.name.toUpperCase()} VENCE A SÉRIE POR ${newA} × ${newB}!`,
                 important: true,
               },
               ...prevFeed,
@@ -751,6 +760,7 @@ export function LiveFinalModal({
           teamA,
           teamB,
           isCs2,
+          isGrandFinal,
           ctx: simContext.ctx,
         }),
       );
@@ -801,7 +811,7 @@ export function LiveFinalModal({
                 {championship.name} {championship.season ? `· ${championship.season}` : ""}
               </p>
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Grande Final • Melhor de {match.bestOf} (Vence quem fizer {needed})
+                {isGrandFinal ? "Grande Final" : match.roundName || "Partida Oficial"} • Melhor de {match.bestOf} (Vence quem fizer {needed})
               </p>
             </div>
           </div>
@@ -809,7 +819,13 @@ export function LiveFinalModal({
             type="button"
             onClick={handleConfirmAndClose}
             className="rounded border border-border p-1.5 text-muted-foreground transition-colors hover:border-gold hover:text-bone"
-            title={seriesWinnerSide ? "Salvar título e fechar" : "Fechar transmissão"}
+            title={
+              seriesWinnerSide
+                ? isGrandFinal
+                  ? "Salvar título e fechar"
+                  : "Salvar resultado e fechar"
+                : "Fechar transmissão"
+            }
           >
             <X className="h-4 w-4" />
           </button>
@@ -898,7 +914,7 @@ export function LiveFinalModal({
               ) : (
                 <div className="mt-3 flex items-center gap-1.5 rounded-full border border-gold bg-gold/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-gold">
                   <Trophy className="h-3.5 w-3.5" />
-                  Campeão: {seriesWinnerSide === "A" ? teamA.name : teamB.name}
+                  {isGrandFinal ? "Campeão" : "Vencedor"}: {seriesWinnerSide === "A" ? teamA.name : teamB.name}
                 </div>
               )}
             </div>
@@ -1081,14 +1097,17 @@ export function LiveFinalModal({
           ) : (
             <div className="flex w-full items-center justify-between gap-3">
               <span className="text-xs font-semibold text-emerald-400">
-                ✓ Grande Final concluída ({scoreA} × {scoreB})! Clique ao lado para gravar e celebrar.
+                {isGrandFinal
+                  ? `✓ Grande Final concluída (${scoreA} × ${scoreB})! Clique ao lado para gravar e celebrar.`
+                  : `✓ Série concluída (${scoreA} × ${scoreB})! Clique ao lado para registrar o placar.`}
               </span>
               <button
                 type="button"
                 onClick={handleConfirmAndClose}
                 className="inline-flex items-center gap-2 rounded border-2 border-gold bg-gold px-4 py-2 font-display text-xs font-black uppercase tracking-widest text-ink shadow-md hover:bg-gold/90"
               >
-                <Sparkles className="h-4 w-4" /> Confirmar Título &amp; Celebrar
+                <Sparkles className="h-4 w-4" />{" "}
+                {isGrandFinal ? "Confirmar Título & Celebrar" : "Confirmar Resultado"}
               </button>
             </div>
           )}

@@ -264,12 +264,20 @@ function MatchCardComponent({
           >
             <Dices />
           </Button>
-          {isGrandFinalMatch && !match.winnerId ? (
+          {!match.winnerId ? (
             <button
               type="button"
               onClick={() => setLiveOpen(true)}
-              className="inline-flex h-8 items-center gap-1 bg-blood px-2 font-display text-[10px] font-bold uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-blood/85"
-              title="Simular a Grande Final ao vivo mapa a mapa"
+              className={`inline-flex h-8 items-center gap-1 px-2 font-display text-[10px] font-bold uppercase tracking-wider shadow-sm transition-colors ${
+                isGrandFinalMatch
+                  ? "bg-blood text-white hover:bg-blood/85"
+                  : "border border-blood/60 bg-blood/20 text-blood hover:bg-blood hover:text-white"
+              }`}
+              title={
+                isGrandFinalMatch
+                  ? "Simular a Grande Final ao vivo mapa a mapa"
+                  : "Assistir e simular esta série ao vivo mapa a mapa"
+              }
             >
               <Radio className="h-3 w-3 animate-pulse" /> Ao Vivo
             </button>
@@ -372,6 +380,7 @@ function MatchCardComponent({
           teamA={teamA}
           teamB={teamB}
           career={career[champ.game ?? "lol"]}
+          isGrandFinal={isGrandFinalMatch}
           onFinish={(winnerId, score) => {
             setScoreA(String(score.a));
             setScoreB(String(score.b));
