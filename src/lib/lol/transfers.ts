@@ -153,125 +153,290 @@ export function isPlayerImport(player: Player, teamRegionRaw?: string): boolean 
 }
 
 // ---------------------------------------------------------------------------
-// Pool Global de Agentes Livres & Scouting de Novos Talentos
+// Pool Global de Agentes Livres Reais (Separados por Região)
 // ---------------------------------------------------------------------------
 
+/** Nomes genéricos antigos que eram clonados entre várias ligas — removidos automaticamente na hidratação */
+export const LEGACY_FICTIONAL_FREE_AGENTS = new Set([
+  "zephyr",
+  "predator",
+  "horizon",
+  "shadowaim",
+  "colossus",
+  "valkyrie",
+  "titanclaw",
+  "krypton",
+  "vortex",
+  "solari",
+  "nightfall",
+  "sparky",
+  "bould",
+  "raptor",
+  "misty",
+]);
+
+export function isLegacyClonedPlayer(p: Player, teamName = ""): boolean {
+  const norm = p.ign.trim().toLowerCase();
+  if (LEGACY_FICTIONAL_FREE_AGENTS.has(norm)) return true;
+  // O antigo pool tinha um "Aegis" fictício (Support, KR, 86 OVR) que entrava em todas as ligas;
+  // o Aegis real é Jungler BR (RED Canids).
+  if (norm === "aegis" && (p.role === "support" || p.country === "KR")) {
+    return true;
+  }
+  return false;
+}
+
 export const GLOBAL_FREE_AGENT_POOL: Omit<Player, "id">[] = [
-  // Superestrelas Coreanas & Chinesas (Caras, exigem orçamento de time grande)
+  // LCK / Coreia do Sul (Jogadores reais disponíveis no mercado)
   {
-    ign: "Zephyr",
-    role: "mid",
-    country: "KR",
-    age: 20,
-    attrs: { mechanics: 92, gameIq: 84, clutch: 85, mentality: 82, intlExperience: 60 },
-  },
-  {
-    ign: "Aegis",
-    role: "support",
-    country: "KR",
-    age: 25,
-    attrs: { mechanics: 80, gameIq: 94, clutch: 90, mentality: 92, intlExperience: 85 },
-  },
-  {
-    ign: "Predator",
-    role: "jungle",
-    country: "CN",
-    age: 23,
-    attrs: { mechanics: 89, gameIq: 86, clutch: 83, mentality: 84, intlExperience: 70 },
-  },
-  {
-    ign: "Horizon",
+    ign: "Rascal",
+    real: "Kim Kwang-hee",
     role: "top",
     country: "KR",
-    age: 22,
-    attrs: { mechanics: 88, gameIq: 82, clutch: 80, mentality: 79, intlExperience: 50 },
+    age: 26,
+    attrs: { mechanics: 79, gameIq: 81, clutch: 78, mentality: 80, intlExperience: 65 },
   },
-  // Talentos Ocidentais (LEC / LCS)
   {
-    ign: "ShadowAim",
+    ign: "Croco",
+    real: "Kim Dong-beom",
+    role: "jungle",
+    country: "KR",
+    age: 24,
+    attrs: { mechanics: 80, gameIq: 79, clutch: 78, mentality: 77, intlExperience: 55 },
+  },
+  {
+    ign: "Fate",
+    real: "Yoo Su-hyeok",
+    role: "mid",
+    country: "KR",
+    age: 24,
+    attrs: { mechanics: 80, gameIq: 81, clutch: 77, mentality: 79, intlExperience: 50 },
+  },
+  {
+    ign: "Teddy",
+    real: "Park Jin-seong",
     role: "adc",
-    country: "EU",
-    age: 21,
-    attrs: { mechanics: 91, gameIq: 78, clutch: 82, mentality: 77, intlExperience: 55 },
+    country: "KR",
+    age: 26,
+    attrs: { mechanics: 82, gameIq: 81, clutch: 80, mentality: 82, intlExperience: 68 },
   },
   {
-    ign: "Colossus",
+    ign: "Effort",
+    real: "Lee Sang-ho",
+    role: "support",
+    country: "KR",
+    age: 24,
+    attrs: { mechanics: 77, gameIq: 80, clutch: 76, mentality: 78, intlExperience: 60 },
+  },
+
+  // LPL / China
+  {
+    ign: "Cube",
+    real: "Dai Yi",
+    role: "top",
+    country: "CN",
+    age: 22,
+    attrs: { mechanics: 79, gameIq: 78, clutch: 77, mentality: 77, intlExperience: 45 },
+  },
+  {
+    ign: "Meteor",
+    real: "Zeng Guo-Hao",
+    role: "jungle",
+    country: "CN",
+    age: 24,
+    attrs: { mechanics: 80, gameIq: 80, clutch: 78, mentality: 79, intlExperience: 45 },
+  },
+  {
+    ign: "Angel",
+    real: "Xiang Tao",
+    role: "mid",
+    country: "CN",
+    age: 24,
+    attrs: { mechanics: 80, gameIq: 81, clutch: 79, mentality: 80, intlExperience: 68 },
+  },
+  {
+    ign: "Lwx",
+    real: "Lin Wei-Xiang",
+    role: "adc",
+    country: "CN",
+    age: 26,
+    attrs: { mechanics: 80, gameIq: 80, clutch: 81, mentality: 80, intlExperience: 75 },
+  },
+  {
+    ign: "Mark",
+    real: "Ling Xu",
+    role: "support",
+    country: "CN",
+    age: 25,
+    attrs: { mechanics: 78, gameIq: 81, clutch: 78, mentality: 79, intlExperience: 60 },
+  },
+
+  // LEC / Europa
+  {
+    ign: "Wunder",
+    real: "Martin Hansen",
     role: "top",
     country: "EU",
     age: 26,
-    attrs: { mechanics: 82, gameIq: 90, clutch: 87, mentality: 89, intlExperience: 75 },
+    attrs: { mechanics: 78, gameIq: 82, clutch: 80, mentality: 81, intlExperience: 78 },
   },
   {
-    ign: "Valkyrie",
-    role: "adc",
-    country: "NA",
+    ign: "Markoon",
+    real: "Mark van Woerkom",
+    role: "jungle",
+    country: "EU",
     age: 22,
-    attrs: { mechanics: 86, gameIq: 83, clutch: 81, mentality: 80, intlExperience: 50 },
+    attrs: { mechanics: 78, gameIq: 77, clutch: 75, mentality: 76, intlExperience: 40 },
   },
-  // Talentos Nacionais / Brasileiros (CBLOL)
   {
-    ign: "TitanClaw",
+    ign: "Abbedagge",
+    real: "Felix Braun",
+    role: "mid",
+    country: "EU",
+    age: 25,
+    attrs: { mechanics: 78, gameIq: 79, clutch: 76, mentality: 77, intlExperience: 55 },
+  },
+  {
+    ign: "Crownie",
+    real: "Juš Marušič",
+    role: "adc",
+    country: "EU",
+    age: 26,
+    attrs: { mechanics: 79, gameIq: 79, clutch: 78, mentality: 78, intlExperience: 52 },
+  },
+  {
+    ign: "Trymbi",
+    real: "Adrian Trybus",
+    role: "support",
+    country: "EU",
+    age: 24,
+    attrs: { mechanics: 78, gameIq: 80, clutch: 78, mentality: 77, intlExperience: 62 },
+  },
+
+  // LCS / América do Norte
+  {
+    ign: "Licorice",
+    real: "Eric Ritchie",
+    role: "top",
+    country: "US",
+    age: 26,
+    attrs: { mechanics: 77, gameIq: 80, clutch: 78, mentality: 80, intlExperience: 65 },
+  },
+  {
+    ign: "Spica",
+    real: "Mingyi Lu",
+    role: "jungle",
+    country: "US",
+    age: 23,
+    attrs: { mechanics: 78, gameIq: 78, clutch: 77, mentality: 77, intlExperience: 52 },
+  },
+  {
+    ign: "Insanity",
+    real: "David Challe",
+    role: "mid",
+    country: "US",
+    age: 24,
+    attrs: { mechanics: 76, gameIq: 77, clutch: 75, mentality: 76, intlExperience: 35 },
+  },
+  {
+    ign: "Zven",
+    real: "Jesper Svenningsen",
+    role: "adc",
+    country: "US",
+    age: 27,
+    attrs: { mechanics: 79, gameIq: 82, clutch: 79, mentality: 81, intlExperience: 78 },
+  },
+  {
+    ign: "Zeyzal",
+    real: "Tristan Stidam",
+    role: "support",
+    country: "US",
+    age: 25,
+    attrs: { mechanics: 75, gameIq: 80, clutch: 76, mentality: 79, intlExperience: 58 },
+  },
+
+  // CBLOL / Brasil
+  {
+    ign: "Tay",
+    real: "Rodrigo Panisa",
     role: "top",
     country: "BR",
-    age: 21,
-    attrs: { mechanics: 85, gameIq: 80, clutch: 86, mentality: 82, intlExperience: 25 },
+    age: 27,
+    attrs: { mechanics: 76, gameIq: 79, clutch: 77, mentality: 79, intlExperience: 55 },
   },
   {
-    ign: "Krypton",
-    role: "mid",
-    country: "BR",
-    age: 18,
-    attrs: { mechanics: 89, gameIq: 73, clutch: 85, mentality: 76, intlExperience: 18 },
-  },
-  {
-    ign: "Vortex",
+    ign: "Ranger",
+    real: "Filipe Brombilla",
     role: "jungle",
+    country: "BR",
+    age: 26,
+    attrs: { mechanics: 76, gameIq: 80, clutch: 77, mentality: 80, intlExperience: 45 },
+  },
+  {
+    ign: "Hauz",
+    real: "Bruno Ferreira",
+    role: "mid",
     country: "BR",
     age: 24,
-    attrs: { mechanics: 84, gameIq: 87, clutch: 88, mentality: 86, intlExperience: 45 },
+    attrs: { mechanics: 78, gameIq: 76, clutch: 76, mentality: 75, intlExperience: 35 },
   },
   {
-    ign: "Solari",
-    role: "support",
-    country: "BR",
-    age: 22,
-    attrs: { mechanics: 80, gameIq: 88, clutch: 84, mentality: 82, intlExperience: 30 },
-  },
-  {
-    ign: "Nightfall",
+    ign: "Netuno",
+    real: "Lucas Flores",
     role: "adc",
     country: "BR",
-    age: 19,
-    attrs: { mechanics: 87, gameIq: 74, clutch: 83, mentality: 78, intlExperience: 15 },
-  },
-  // Revelações e Jovens Promessas de Baixo Custo (Acessíveis para times menores)
-  {
-    ign: "Sparky",
-    role: "mid",
-    country: "BR",
-    age: 17,
-    attrs: { mechanics: 83, gameIq: 68, clutch: 74, mentality: 70, intlExperience: 5 },
+    age: 22,
+    attrs: { mechanics: 78, gameIq: 75, clutch: 76, mentality: 75, intlExperience: 30 },
   },
   {
-    ign: "Bould",
-    role: "top",
-    country: "BR",
-    age: 18,
-    attrs: { mechanics: 81, gameIq: 70, clutch: 75, mentality: 72, intlExperience: 5 },
-  },
-  {
-    ign: "Raptor",
-    role: "jungle",
-    country: "BR",
-    age: 19,
-    attrs: { mechanics: 80, gameIq: 72, clutch: 77, mentality: 74, intlExperience: 5 },
-  },
-  {
-    ign: "Misty",
+    ign: "Damage",
+    real: "Yan Sales",
     role: "support",
     country: "BR",
-    age: 18,
-    attrs: { mechanics: 77, gameIq: 76, clutch: 76, mentality: 73, intlExperience: 5 },
+    age: 25,
+    attrs: { mechanics: 76, gameIq: 78, clutch: 77, mentality: 78, intlExperience: 45 },
+  },
+
+  // LCP / PCS
+  {
+    ign: "Rest",
+    real: "Hsu Shih-Chieh",
+    role: "top",
+    country: "TW",
+    age: 25,
+    attrs: { mechanics: 77, gameIq: 78, clutch: 76, mentality: 77, intlExperience: 55 },
+  },
+  {
+    ign: "Gemini",
+    real: "Huang Chu-Xuan",
+    role: "jungle",
+    country: "TW",
+    age: 24,
+    attrs: { mechanics: 76, gameIq: 77, clutch: 75, mentality: 76, intlExperience: 48 },
+  },
+  {
+    ign: "Mission",
+    real: "Chen Hsiao-Hsien",
+    role: "mid",
+    country: "TW",
+    age: 25,
+    attrs: { mechanics: 76, gameIq: 78, clutch: 75, mentality: 76, intlExperience: 45 },
+  },
+  {
+    ign: "Shunn",
+    real: "Chao Ying-Shun",
+    role: "adc",
+    country: "TW",
+    age: 22,
+    attrs: { mechanics: 77, gameIq: 75, clutch: 75, mentality: 75, intlExperience: 40 },
+  },
+  {
+    ign: "Koala",
+    real: "Lin Chih-Chiang",
+    role: "support",
+    country: "TW",
+    age: 27,
+    attrs: { mechanics: 75, gameIq: 79, clutch: 76, mentality: 78, intlExperience: 60 },
   },
 ];
 
@@ -422,17 +587,33 @@ function moveSingleTeam(params: {
     }
   }
 
-  // 2. Procura no pool de Agentes Livres respeitando orçamento e limite de 2 imports
-  const candidateIdx = pool.findIndex((fa) => {
+  // 2. Procura no pool de Agentes Livres (prioriza jogadores da própria região; imports só raramente e dentro do limite de 2)
+  const allowImportSearch = Math.random() < 0.22;
+  const domesticIdx = pool.findIndex((fa) => {
     if (fa.role !== weakest.role) return false;
+    if (isPlayerImport(fa, region)) return false;
     const faAttrs = getResolvedAttrs(fa.attrs, fa.ign, fa.role, fa.country, fa.age);
     if (faAttrs.mechanics <= weakestAttrs.mechanics + 1) return false;
-    const isImp = isPlayerImport(fa, region);
-    if (isImp && currentImports >= 2 && !isPlayerImport(weakest, region)) return false;
     const salary = getPlayerSalary(fa, region, career, game);
     if (salary > budget * 0.42) return false;
     return true;
   });
+
+  const candidateIdx =
+    domesticIdx >= 0
+      ? domesticIdx
+      : allowImportSearch
+        ? pool.findIndex((fa) => {
+            if (fa.role !== weakest.role) return false;
+            const faAttrs = getResolvedAttrs(fa.attrs, fa.ign, fa.role, fa.country, fa.age);
+            if (faAttrs.mechanics <= weakestAttrs.mechanics + 2) return false;
+            const isImp = isPlayerImport(fa, region);
+            if (isImp && currentImports >= 2 && !isPlayerImport(weakest, region)) return false;
+            const salary = getPlayerSalary(fa, region, career, game);
+            if (salary > budget * 0.42) return false;
+            return true;
+          })
+        : -1;
 
   if (candidateIdx >= 0) {
     const signed = pool.splice(candidateIdx, 1)[0];
@@ -524,11 +705,12 @@ function moveSingleTeam(params: {
  */
 export function runAutonomousMarket(params: {
   championship: Championship;
+  allChampionships?: Championship[];
   career?: CareerLedger;
   freeAgentsPool?: Player[];
   intensity?: "normal" | "aggressive";
 }): AutonomousMarketResult {
-  const { championship, career, intensity = "normal" } = params;
+  const { championship, allChampionships = [], career, intensity = "normal" } = params;
 
   if (isBlockedInternational(championship)) {
     return {
@@ -543,16 +725,20 @@ export function runAutonomousMarket(params: {
   const game = (championship.game ?? "lol") as GameId;
   const news: TransferNews[] = [];
 
-  const usedIgns = collectUsedIgns([
+  const allGlobalTeams: Team[] = [
     ...championship.teams,
     ...(championship.serieB?.teams ?? []),
-  ]);
+    ...allChampionships.flatMap((c) => [...c.teams, ...(c.serieB?.teams ?? [])]),
+  ];
+  const usedIgns = collectUsedIgns(allGlobalTeams);
 
   let pool: Player[] = (
     params.freeAgentsPool
       ? [...params.freeAgentsPool]
       : GLOBAL_FREE_AGENT_POOL.map((fa, i) => ({ ...fa, id: `fa_${i + 1}_${Date.now()}` }))
-  ).filter((p) => !usedIgns.has(p.ign.trim().toLowerCase()));
+  )
+    .filter((p) => !usedIgns.has(p.ign.trim().toLowerCase()))
+    .sort(() => Math.random() - 0.5);
 
   const processTeamList = (teams: Team[], isSerieB = false): Team[] => {
     let current = [...teams];
@@ -597,11 +783,12 @@ export function runAutonomousMarket(params: {
  */
 export function runMidSplitMarketTick(params: {
   championship: Championship;
+  allChampionships?: Championship[];
   career?: CareerLedger;
   loserTeamId?: string;
   division?: 1 | 2;
 }): { teams: Team[]; serieBTeams?: Team[]; news: TransferNews[] } {
-  const { championship, career, loserTeamId, division = 1 } = params;
+  const { championship, allChampionships = [], career, loserTeamId, division = 1 } = params;
   if (isBlockedInternational(championship)) {
     return {
       teams: championship.teams,
@@ -633,13 +820,16 @@ export function runMidSplitMarketTick(params: {
     };
   }
 
-  const usedIgns = collectUsedIgns([
+  const allGlobalTeams: Team[] = [
     ...championship.teams,
     ...(championship.serieB?.teams ?? []),
-  ]);
+    ...allChampionships.flatMap((c) => [...c.teams, ...(c.serieB?.teams ?? [])]),
+  ];
+  const usedIgns = collectUsedIgns(allGlobalTeams);
   const pool: Player[] = GLOBAL_FREE_AGENT_POOL
     .map((fa, i) => ({ ...fa, id: `fa_${i + 1}_${Date.now()}` }))
-    .filter((p) => !usedIgns.has(p.ign.trim().toLowerCase()));
+    .filter((p) => !usedIgns.has(p.ign.trim().toLowerCase()))
+    .sort(() => Math.random() - 0.5);
 
   // Escolhe preferencialmente o perdedor em crise ou um time aleatório da divisão
   const target =

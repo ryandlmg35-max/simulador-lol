@@ -78,7 +78,12 @@ import {
   seriesBottomTwo,
   seriesFinalists,
 } from "./promotion";
-import { runMidSplitMarketTick } from "./transfers";
+import {
+  GLOBAL_FREE_AGENT_POOL,
+  LEGACY_FICTIONAL_FREE_AGENTS,
+  isLegacyClonedPlayer,
+  runMidSplitMarketTick,
+} from "./transfers";
 
 const STORAGE_KEY = "lol-esports-sim:v2";
 const CS2_SEED_FLAG = "lol-esports-sim:cs2-seeded";
@@ -1226,6 +1231,140 @@ function ensureTeamLogos(c: Championship): Championship {
   };
 }
 
+/**
+ * Higieniza saves antigos que tinham jogadores fictícios clonados entre várias ligas
+ * (ex.: "Aegis" Support KR 86 OVR aparecendo em SK Gaming, LCS, LCK, etc., ou Zephyr/Predator).
+ * Restaura o titular real da equipe para aquela rota e corrige os MVPs de partidas passadas.
+ */
+function sanitizeLegacyClonedRosters(list: Championship[]): Championship[] {
+  const globalSeenInDomestic = new Set<string>();
+
+  return list.map((c) => {
+    if ((c.game ?? "lol") !== "lol") return c;
+    const isIntl = isInternationalChamp(c);
+    const replacedByTeamAndOldIgn = new Map<string, string>();
+    const replacedByTeamAndRole = new Map<string, string>();
+
+    const cleanTeam = (t: Team): Team => {
+      if (!t.roster || t.roster.length === 0) return t;
+      const authenticRoster = ensureRoster({ ...t, roster: undefined, players: undefined }) ?? [];
+      let changed = false;
+      const usedInTeam = new Set(
+        t.roster
+          .filter((p) => !isLegacyClonedPlayer(p, t.name))
+          .map((p) => p.ign.trim().toLowerCase()),
+      );
+
+      const nextRoster = t.roster.map((p) => {
+        const key = p.ign.trim().toLowerCase();
+        const isClonedFictional = isLegacyClonedPlayer(p, t.name);
+        const isDuplicateAcrossLeagues = !isIntl && !p.sub && globalSeenInDomestic.has(key);
+
+        if (!isClonedFictional && !isDuplicateAcrossLeagues) {
+          if (!isIntl && !p.sub) globalSeenInDomestic.add(key);
+          usedInTeam.add(key);
+          return p;
+        }
+
+        changed = true;
+        // 1. Tenta restaurar o titular real do time naquela rota (do banco real-rosters.ts)
+        const authenticCandidate = authenticRoster.find(
+          (ap) =>
+            ap.role === p.role &&
+            !usedInTeam.has(ap.ign.trim().toLowerCase()) &&
+            (isIntl || !globalSeenInDomestic.has(ap.ign.trim().toLowerCase())) &&
+            !isLegacyClonedPlayer(ap, t.name),
+        );
+
+        let replacement = authenticCandidate;
+        if (!replacement) {
+          // 2. Fallback: escolhe um pro player real único do pool global
+          const fa = GLOBAL_FREE_AGENT_POOL.find(
+            (cand) =>
+              cand.role === p.role &&
+              !usedInTeam.has(cand.ign.trim().toLowerCase()) &&
+              !globalSeenInDomestic.has(cand.ign.trim().toLowerCase()),
+          );
+          if (fa) {
+            replacement = {
+              ...p,
+              id: uid(),
+              ign: fa.ign,
+              country: fa.country,
+              attrs: { ...fa.attrs },
+              pot: fa.pot,
+              age: fa.age,
+            };
+          }
+        }
+
+        if (!replacement) return p;
+
+        const newKey = replacement.ign.trim().toLowerCase();
+        usedInTeam.add(newKey);
+        if (!isIntl && !p.sub) globalSeenInDomestic.add(newKey);
+        replacedByTeamAndOldIgn.set(`${t.id}:${key}`, replacement.ign);
+        replacedByTeamAndRole.set(`${t.id}:${p.role}`, replacement.ign);
+        return {
+          ...replacement,
+          sub: p.sub,
+        };
+      });
+
+      return changed ? { ...t, roster: nextRoster } : t;
+    };
+
+    const nextTeams = c.teams.map(cleanTeam);
+    const nextSerieBTeams = c.serieB?.teams.map(cleanTeam);
+
+    const fixPhases = (phases: Phase[]): Phase[] =>
+      phases.map((ph) => ({
+        ...ph,
+        matches: ph.matches.map((m) => {
+          if (!m.mvp) return m;
+          const mvpIgnKey = m.mvp.playerName.trim().toLowerCase();
+          const directReplacement = replacedByTeamAndOldIgn.get(`${m.mvp.teamId}:${mvpIgnKey}`);
+          const isFakeMvp =
+            LEGACY_FICTIONAL_FREE_AGENTS.has(mvpIgnKey) ||
+            (mvpIgnKey === "aegis" && m.mvp.role === "support");
+          const roleReplacement = isFakeMvp
+            ? replacedByTeamAndRole.get(`${m.mvp.teamId}:${m.mvp.role}`)
+            : undefined;
+          const finalName = directReplacement ?? roleReplacement;
+          if (!finalName) return m;
+          return {
+            ...m,
+            mvp: {
+              ...m.mvp,
+              playerName: finalName,
+            },
+          };
+        }),
+      }));
+
+    const nextTransferHistory = c.transferHistory?.filter((item) => {
+      const k = item.playerName.trim().toLowerCase();
+      if (LEGACY_FICTIONAL_FREE_AGENTS.has(k)) return false;
+      if (k === "aegis" && item.role === "support") return false;
+      return true;
+    });
+
+    return {
+      ...c,
+      teams: nextTeams,
+      phases: fixPhases(c.phases),
+      transferHistory: nextTransferHistory,
+      serieB: c.serieB
+        ? {
+            ...c.serieB,
+            teams: nextSerieBTeams ?? c.serieB.teams,
+            phases: fixPhases(c.serieB.phases),
+          }
+        : c.serieB,
+    };
+  });
+}
+
 function load(): Championship[] {
   if (typeof window === "undefined") return [];
   try {
@@ -1234,9 +1373,10 @@ function load(): Championship[] {
     const parsed = JSON.parse(raw) as Championship[];
     // Legacy migration: pre-CS2 championships default to LoL; old division
     // tags are split into the standalone `serieB` block.
-    return parsed.map((c) =>
+    const migrated = parsed.map((c) =>
       ensureTeamLogos(ensureTeamRosters(migrateChampionship({ ...c, game: c.game ?? "lol" }))),
     );
+    return sanitizeLegacyClonedRosters(migrated);
   } catch {
     return [];
   }
@@ -1617,6 +1757,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 career: careerRef.current,
                 loserTeamId,
                 division,
+                allChampionships: prev,
               });
               if (marketTick.news.length > 0) {
                 updated = {
@@ -1843,6 +1984,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   career: careerRef.current,
                   loserTeamId,
                   division,
+                  allChampionships: prev,
                 });
                 if (marketTick.news.length > 0) {
                   updated = {
@@ -2459,7 +2601,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const c = prev.find((x) => x.id === championshipId);
       if (!c) return prev;
       const archived = archiveCompletedChampions(c);
-      const next = advanceChampionshipToNextSplit(archived, careerRef.current);
+      const next = advanceChampionshipToNextSplit(archived, careerRef.current, prev);
       if (!next) return prev;
       ok = true;
       const nextList = prev.map((item) => (item.id === championshipId ? next : item));
@@ -2489,7 +2631,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Arquive-o antes de recriar as fases, para que resetar/zerar o split
       // nunca apague título ou pontos do ranking global.
       const archived = archiveCompletedChampions(c);
-      const next = buildNextSplitChampionship(archived, careerRef.current);
+      const next = buildNextSplitChampionship(archived, careerRef.current, prev);
       if (!next) return prev;
       newId = next.id;
       return prev.map((item) => (item.id === championshipId ? archived : item)).concat(next);

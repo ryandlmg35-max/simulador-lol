@@ -385,6 +385,7 @@ export function seriesRanking(phases: Phase[], teams: Team[]): Team[] {
 export function buildNextSplitChampionship(
   c: Championship,
   career?: CareerLedger,
+  allChampionships?: Championship[],
 ): Championship | null {
   let teamA = c.teams;
   let teamB: Team[] | null = null;
@@ -474,6 +475,7 @@ export function buildNextSplitChampionship(
       serieB: teamB ? { ...(c.serieB ?? { history: [], phases: [], teams: [] }), teams: teamB } : undefined,
     },
     career,
+    allChampionships,
   });
 
   teamA = marketResult.updatedTeams;
@@ -544,8 +546,9 @@ export function buildNextSplitChampionship(
 export function advanceChampionshipToNextSplit(
   c: Championship,
   career?: CareerLedger,
+  allChampionships?: Championship[],
 ): Championship | null {
-  const next = buildNextSplitChampionship(c, career);
+  const next = buildNextSplitChampionship(c, career, allChampionships);
   if (!next) return null;
   return {
     ...next,
