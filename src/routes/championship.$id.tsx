@@ -41,6 +41,7 @@ import { PressConferenceModal } from "@/components/lol/press-conference-modal";
 import { OffseasonMarketDialog } from "@/components/lol/offseason-market";
 import { TeamProfileDrawer } from "@/components/lol/team-profile-drawer";
 import { CountryFlag } from "@/components/lol/country-flag";
+import { PlayerAvatar } from "@/components/lol/player-avatar";
 import type { GroupsConfig, Phase } from "@/lib/lol/types";
 import {
   automaticPlayInAdvanceCount,
@@ -1295,6 +1296,12 @@ function ChampionshipPage() {
                   <Trophy className="h-6 w-6" />
                   <span className="text-[9px] font-bold uppercase tracking-widest">MVP</span>
                 </div>
+                <PlayerAvatar
+                  ign={seasonAwards.splitMvp.ign}
+                  role={seasonAwards.splitMvp.role}
+                  size="lg"
+                  highlight
+                />
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="bg-gold px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-ink">
@@ -1367,23 +1374,26 @@ function ChampionshipPage() {
                         ) : null}
                       </div>
                       {w ? (
-                        <div className="mt-2.5">
-                          <div className="flex items-center gap-2">
-                            <CountryFlag code={w.country} size="sm" />
-                            <span className="font-display text-xl uppercase tracking-wide text-bone">
-                              {w.ign}
-                            </span>
+                        <div className="mt-2.5 flex items-center gap-2.5">
+                          <PlayerAvatar ign={w.ign} role={role} size="md" />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <CountryFlag code={w.country} size="sm" />
+                              <span className="truncate font-display text-xl uppercase tracking-wide text-bone">
+                                {w.ign}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const found = matchLookupTeams.find((t) => t.id === w.teamId);
+                                if (found) setSelectedTeamProfile(found);
+                              }}
+                              className="mt-0.5 truncate text-left text-xs font-semibold text-gold hover:underline"
+                            >
+                              {w.teamName}
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const found = matchLookupTeams.find((t) => t.id === w.teamId);
-                              if (found) setSelectedTeamProfile(found);
-                            }}
-                            className="mt-0.5 text-left text-xs font-semibold text-gold hover:underline"
-                          >
-                            {w.teamName}
-                          </button>
                         </div>
                       ) : (
                         <div className="mt-2 text-xs text-muted-foreground">A definir</div>

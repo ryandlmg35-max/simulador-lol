@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { PlayerAvatar } from "@/components/lol/player-avatar";
+import { CountryFlag } from "@/components/lol/country-flag";
 import {
   ArrowLeft,
   ArrowUpDown,
@@ -893,23 +895,27 @@ export function ManagerDashboard({
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="bg-gold px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink">
-                            {p.role.toUpperCase()}
-                          </span>
-                          <span className="font-display text-xl uppercase tracking-wide text-bone">
-                            {p.ign}
-                          </span>
-                          <span className="border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
-                            {p.sub ? "Reserva" : "Titular"}
-                          </span>
+                      <div className="flex items-start gap-3">
+                        <PlayerAvatar ign={p.ign} role={p.role} size="md" highlight={!p.sub} />
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="bg-gold px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink">
+                              {p.role.toUpperCase()}
+                            </span>
+                            <CountryFlag code={p.country} size="xs" />
+                            <span className="font-display text-xl uppercase tracking-wide text-bone">
+                              {p.ign}
+                            </span>
+                            <span className="border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
+                              {p.sub ? "Reserva" : "Titular"}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {p.real ? `${p.real} · ` : ""}
+                            {p.country ?? "INTL"} · {p.age ?? 21} anos · V-D: {p.wins}-{p.losses} ·{" "}
+                            {p.mvps} MVPs
+                          </p>
                         </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {p.real ? `${p.real} · ` : ""}
-                          {p.country ?? "INTL"} · {p.age ?? 21} anos · V-D: {p.wins}-{p.losses} ·{" "}
-                          {p.mvps} MVPs
-                        </p>
                       </div>
                       <div className="text-right">
                         <div className="font-display text-3xl text-gold">{p.overall}</div>
@@ -1239,12 +1245,18 @@ export function ManagerDashboard({
                   {marketPlayers.map((p) => (
                     <tr key={p.id} className="hover:bg-gold/5">
                       <td className="px-4 py-2.5">
-                        <div className="font-display text-sm uppercase tracking-wide text-bone">
-                          {p.ign}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {p.real ? `${p.real} · ` : ""}
-                          {p.country ?? "INTL"}
+                        <div className="flex items-center gap-2.5">
+                          <PlayerAvatar ign={p.ign} role={p.role} size="xs" />
+                          <div>
+                            <div className="flex items-center gap-1.5 font-display text-sm uppercase tracking-wide text-bone">
+                              <CountryFlag code={p.country} size="xs" />
+                              <span>{p.ign}</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {p.real ? `${p.real} · ` : ""}
+                              {p.country ?? "INTL"}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="px-3 py-2.5">

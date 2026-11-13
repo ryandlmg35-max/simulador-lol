@@ -16,6 +16,7 @@ import {
 import type { CareerLedger, Championship, GameId, Player, Team } from "@/lib/lol/types";
 import { TeamLogo } from "./team-logo";
 import { CountryFlag } from "./country-flag";
+import { PlayerAvatar } from "./player-avatar";
 import { ensureRoster, pickStarters } from "@/lib/lol/players";
 import { canonicalTournamentName, extractSeasonFromChampName } from "@/lib/lol/international";
 import { useStore } from "@/lib/lol/store";
@@ -367,6 +368,7 @@ export function TeamProfileDrawer({
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
+                            <PlayerAvatar ign={player.ign} role={player.role} size="sm" />
                             <span className="w-12 text-center rounded bg-muted/60 px-1.5 py-1 text-xs font-mono font-bold uppercase text-muted-foreground">
                               {player.role}
                             </span>
