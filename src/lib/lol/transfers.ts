@@ -721,6 +721,99 @@ function collectUsedIgns(teams: Team[]): Set<string> {
   return used;
 }
 
+/**
+ * Avalia a VONTADE DO JOGADOR antes de fechar a contratação:
+ * o atleta analisa se o time oferece o melhor ambiente para ser campeão e evoluir.
+ */
+function doesPlayerAcceptMove(params: {
+  player: Player;
+  targetTeam: Team;
+  targetStarters: Player[];
+  replacedStarter: Player;
+  fromTeam?: Team;
+  fromStarters?: Player[];
+  isImport: boolean;
+  isSerieB: boolean;
+  career?: CareerLedger;
+  game: GameId;
+}): boolean {
+  const {
+    player,
+    targetTeam,
+    targetStarters,
+    replacedStarter,
+    fromTeam,
+    fromStarters,
+    isImport,
+    isSerieB,
+    career,
+    game,
+  } = params;
+
+  const pOvr = playerOverall(player);
+  const age = player.age ?? 22;
+  const culture = targetTeam.culture ?? 50;
+  const synergy = targetTeam.synergy ?? 10;
+
+  // Força média do novo elenco JÁ contando a entrada do jogador no lugar do titular substituído
+  const projectedStarters = targetStarters
+    .filter((s) => s.id !== replacedStarter.id)
+    .concat(player);
+  const projectedAvgOvr =
+    projectedStarters.reduce((acc, s) => acc + playerOverall(s), 0) /
+    Math.max(1, projectedStarters.length);
+
+  const careerEntry = career?.[game]?.[targetTeam.name.trim().toLowerCase()];
+  const teamPrestige = careerEntry?.rating ?? 50;
+  const hasTitles = (careerEntry?.titles ?? 0) > 0;
+
+  // 1. Vontade de ser CAMPEÃO (especialmente estrelas e veteranos 24+)
+  if (pOvr >= 82 || age >= 25) {
+    // Superestrela não vai pra Série B, a menos que esteja em queda livre (< 76)
+    if (isSerieB && pOvr >= 76) return false;
+    // Vestiário em crise (cultura < 38) afasta estrelas que querem taça
+    if (pOvr >= 82 && culture < 38 && !hasTitles) return false;
+    // Jogador de elite exige elenco competitivo ao redor para poder brigar por título
+    const minTeamLevel = pOvr >= 86 ? pOvr - 11 : pOvr - 13;
+    if (projectedAvgOvr < minTeamLevel && teamPrestige < 58 && !hasTitles) return false;
+  }
+
+  // 2. Vontade de EVOLUIR (jovens <= 22 anos)
+  if (age <= 22) {
+    // Jovem precisa de ambiente minimamente saudável e companheiros que agreguem experiência
+    if (culture < 30) return false;
+    const avgTeammateIq =
+      projectedStarters.reduce(
+        (acc, s) => acc + getResolvedAttrs(s.attrs, s.ign, s.role, s.country, s.age).gameIq,
+        0,
+      ) / Math.max(1, projectedStarters.length);
+    // Se o time é muito fraco de macro e tem cultura ruim, o jovem prefere esperar proposta melhor
+    if (avgTeammateIq < 64 && culture < 45 && isSerieB) return false;
+  }
+
+  // 3. Jogador que já está em outro time da liga (troca/compra):
+  // Se era titular lá, só aceita sair se o novo time for projeto igual/melhor (ou cultura muito superior)
+  if (fromTeam && !player.sub && fromStarters && fromStarters.length > 0) {
+    const fromAvgOvr =
+      fromStarters.reduce((acc, s) => acc + playerOverall(s), 0) / fromStarters.length;
+    const fromPrestige = career?.[game]?.[fromTeam.name.trim().toLowerCase()]?.rating ?? 50;
+    const betterProject =
+      projectedAvgOvr >= fromAvgOvr - 1.5 ||
+      teamPrestige >= fromPrestige + 4 ||
+      culture >= (fromTeam.culture ?? 50) + 10 ||
+      synergy >= (fromTeam.synergy ?? 10) + 12;
+    if (!betterProject) return false;
+  }
+
+  // 4. Gringo de alto nível (import) só atravessa o oceano por projeto sólido e chance real de título
+  if (isImport && pOvr >= 80) {
+    if (isSerieB) return false;
+    if (projectedAvgOvr < 73 && teamPrestige < 54 && culture < 52) return false;
+  }
+
+  return true;
+}
+
 function moveSingleTeam(params: {
   team: Team;
   allLeagueTeams: Team[];
@@ -793,6 +886,24 @@ function moveSingleTeam(params: {
 
         // Puxa se for reserva lá ou se o comprador tiver ambição/orçamento superior
         if (!p.sub && budget <= otherBudget + 100) continue;
+
+        // Vontade do jogador: analisa se o novo time é melhor para ser campeão e evoluir
+        if (
+          !doesPlayerAcceptMove({
+            player: p,
+            targetTeam: team,
+            targetStarters: starters,
+            replacedStarter: target.player,
+            fromTeam: other,
+            fromStarters: pickStarters(otherRoster),
+            isImport: isImp,
+            isSerieB,
+            career,
+            game,
+          })
+        ) {
+          continue;
+        }
 
         const sc = scoreUpgrade(p, target.player, isImp);
         if (!bestIntra || sc > bestIntra.score) {
@@ -881,6 +992,22 @@ function moveSingleTeam(params: {
     // Para estrelas (OVR 82+) que mudam o patamar do time, aceita investir até 54% do orçamento
     const maxShare = candOvr >= 82 ? 0.54 : 0.45;
     if (salary > budget * maxShare) continue;
+
+    // Vontade do jogador: o atleta avalia o projeto esportivo, cultura e chance de título/evolução
+    if (
+      !doesPlayerAcceptMove({
+        player: fa,
+        targetTeam: team,
+        targetStarters: starters,
+        replacedStarter: target.player,
+        isImport: isImp,
+        isSerieB,
+        career,
+        game,
+      })
+    ) {
+      continue;
+    }
 
     const sc = scoreUpgrade(fa, target.player, isImp);
     if (!bestPoolPick || sc > bestPoolPick.score) {
