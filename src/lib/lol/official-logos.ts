@@ -243,6 +243,127 @@ export const OFFICIAL_TEAM_LOGOS: Record<string, string> = {
   "FUT Esports": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/90/Futbolist_2021_lightmode.png&w=128",
 };
 
+// Logos de times de CS2 (Tier 2/3) — usadas só como fallback exato, sem busca por substring,
+// para não vazar para nomes de times de LoL.
+const CS2_ONLY_LOGOS: Record<string, string> = {
+  "2Game": "https://wsrv.nl/?url=liquipedia.net/commons/images/7/7f/2GAME_Esports_2024_allmode.png&w=128",
+  "2G": "https://wsrv.nl/?url=liquipedia.net/commons/images/7/7f/2GAME_Esports_2024_allmode.png&w=128",
+  "500": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/97/500_Esports_2024_allmode.png&w=128",
+  "9 Pandas": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/39/9Pandas_Fearless_allmode.png&w=128",
+  "9P": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/39/9Pandas_Fearless_allmode.png&w=128",
+  "9INE": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/1b/9INE_2025_darkmode.png&w=128",
+  "Alliance": "https://wsrv.nl/?url=liquipedia.net/commons/images/a/a9/Alliance_2024_full_allmode.png&w=128",
+  "ALL": "https://wsrv.nl/?url=liquipedia.net/commons/images/a/a9/Alliance_2024_full_allmode.png&w=128",
+  "Alter Ego": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ea/Alter_Ego_2022_allmode.png&w=128",
+  "AE": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ea/Alter_Ego_2022_allmode.png&w=128",
+  "ALTERNATE aTTaX": "https://wsrv.nl/?url=liquipedia.net/commons/images/0/06/ALTERNATE_aTTaX_2020_allmode.png&w=128",
+  "ATN": "https://wsrv.nl/?url=liquipedia.net/commons/images/0/06/ALTERNATE_aTTaX_2020_allmode.png&w=128",
+  "AMKAL": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/13/AMKAL_ESPORTS_2024_darkmode.png&w=128",
+  "AMK": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/13/AMKAL_ESPORTS_2024_darkmode.png&w=128",
+  "Apeks": "https://wsrv.nl/?url=liquipedia.net/commons/images/d/dc/Apeks_2021_full_darkmode.png&w=128",
+  "APK": "https://wsrv.nl/?url=liquipedia.net/commons/images/d/dc/Apeks_2021_full_darkmode.png&w=128",
+  "ATOX": "https://wsrv.nl/?url=liquipedia.net/commons/images/8/89/ATOX_2024_allmode.png&w=128",
+  "B8": "https://wsrv.nl/?url=liquipedia.net/commons/images/a/a6/B8_darkmode.png&w=128",
+  "BESTIA": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5d/BESTIA_full_darkmode.png&w=128",
+  "BST": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5d/BESTIA_full_darkmode.png&w=128",
+  "BIG": "https://wsrv.nl/?url=liquipedia.net/commons/images/4/45/BIG_2020_full_darkmode.png&w=128",
+  "BLEED": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ea/Bleed_Esports_2024_full_darkmode.png&w=128",
+  "BLD": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ea/Bleed_Esports_2024_full_darkmode.png&w=128",
+  "BOSS": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/92/Boss_CS2_allmode.png&w=128",
+  "Bounty Hunters": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/99/Bounty_Hunters_2026_allmode.png&w=128",
+  "BH": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/99/Bounty_Hunters_2026_allmode.png&w=128",
+  "CASE": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/54/Case_Esports_2023_allmode.png&w=128",
+  "Chinggis Warriors": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/39/Chinggis_Warriors_allmode.png&w=128",
+  "CW": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/39/Chinggis_Warriors_allmode.png&w=128",
+  "CYBERSHOKE": "https://wsrv.nl/?url=liquipedia.net/commons/images/b/b3/CYBERSHOKE_Esports_2024_full_darkmode.png&w=128",
+  "CYB": "https://wsrv.nl/?url=liquipedia.net/commons/images/b/b3/CYBERSHOKE_Esports_2024_full_darkmode.png&w=128",
+  "Dynamo Eclot": "https://wsrv.nl/?url=liquipedia.net/commons/images/c/c4/Dynamo_Eclot_allmode.png&w=128",
+  "ECL": "https://wsrv.nl/?url=liquipedia.net/commons/images/c/c4/Dynamo_Eclot_allmode.png&w=128",
+  "ECSTATIC": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/93/ECSTATIC_2023_allmode.png&w=128",
+  "ECS": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/93/ECSTATIC_2023_allmode.png&w=128",
+  "Elevate": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/e3/Elevate_2020_full_darkmode.png&w=128",
+  "ELV": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/e3/Elevate_2020_full_darkmode.png&w=128",
+  "ENCE": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/96/ENCE_2020_full_darkmode.png&w=128",
+  "Endpoint": "https://wsrv.nl/?url=liquipedia.net/commons/images/c/cd/Endpoint_2020_full_darkmode.png&w=128",
+  "END": "https://wsrv.nl/?url=liquipedia.net/commons/images/c/cd/Endpoint_2020_full_darkmode.png&w=128",
+  "Eyeballers": "https://wsrv.nl/?url=liquipedia.net/commons/images/6/68/EYEBALLERS_2023_full_allmode.png&w=128",
+  "EYE": "https://wsrv.nl/?url=liquipedia.net/commons/images/6/68/EYEBALLERS_2023_full_allmode.png&w=128",
+  "FLUFFY AIMERS": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/57/FLUFFY_AIMERS_2024_full_darkmode.png&w=128",
+  "FA": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/57/FLUFFY_AIMERS_2024_full_darkmode.png&w=128",
+  "FORZE": "https://wsrv.nl/?url=liquipedia.net/commons/images/a/a0/FORZE_Esports_2023_february_full_darkmode.png&w=128",
+  "FRZ": "https://wsrv.nl/?url=liquipedia.net/commons/images/a/a0/FORZE_Esports_2023_february_full_darkmode.png&w=128",
+  "Galorys": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/35/Galorys_2023_allmode.png&w=128",
+  "GAL": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/35/Galorys_2023_allmode.png&w=128",
+  "GamerLegion": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/21/GamerLegion_2026_allmode.png&w=128",
+  "GL": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/21/GamerLegion_2026_allmode.png&w=128",
+  "Gods Reign": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/25/Gods_Reign_2022_full_allmode.png&w=128",
+  "GR": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/25/Gods_Reign_2022_full_allmode.png&w=128",
+  "Guild Eagles": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/30/Guild_Eagles_full_allmode.png&w=128",
+  "GE": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/30/Guild_Eagles_full_allmode.png&w=128",
+  "GUN5": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/50/GUN5_Esports_darkmode.png&w=128",
+  "inSanitY": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/95/InSanitY_Sports_full_allmode.png&w=128",
+  "INS": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/95/InSanitY_Sports_full_allmode.png&w=128",
+  "Into The Breach": "https://wsrv.nl/?url=liquipedia.net/commons/images/4/4e/Into_The_Breach_Purple_2024_allmode.png&w=128",
+  "ITB": "https://wsrv.nl/?url=liquipedia.net/commons/images/4/4e/Into_The_Breach_Purple_2024_allmode.png&w=128",
+  "JiJieHao": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/30/JiJieHao_International_allmode.png&w=128",
+  "JJH": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/30/JiJieHao_International_allmode.png&w=128",
+  "KRU": "https://wsrv.nl/?url=liquipedia.net/commons/images/a/ac/KRU_Esports_full_darkmode.png&w=128",
+  "LAG": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/2f/LAG_Gaming_US_darkmode.png&w=128",
+  "Lynn Vision": "https://wsrv.nl/?url=liquipedia.net/commons/images/b/b5/Lynn_Vision_Gaming_2024_full_allmode.png&w=128",
+  "LVG": "https://wsrv.nl/?url=liquipedia.net/commons/images/b/b5/Lynn_Vision_Gaming_2024_full_allmode.png&w=128",
+  "M80": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/55/M80_2023_allmode.png&w=128",
+  "Metizport": "https://wsrv.nl/?url=liquipedia.net/commons/images/d/d9/Metizport_2025_allmode.png&w=128",
+  "MTZ": "https://wsrv.nl/?url=liquipedia.net/commons/images/d/d9/Metizport_2025_allmode.png&w=128",
+  "Monte": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/22/Monte_2022_allmode.png&w=128",
+  "MNT": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/22/Monte_2022_allmode.png&w=128",
+  "Mythic": "https://wsrv.nl/?url=liquipedia.net/commons/images/6/60/Mythic_2017_full_allmode.png&w=128",
+  "MYT": "https://wsrv.nl/?url=liquipedia.net/commons/images/6/60/Mythic_2017_full_allmode.png&w=128",
+  "Nouns": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ea/Nouns_Esports_CSGO_allmode.png&w=128",
+  "NNS": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ea/Nouns_Esports_CSGO_allmode.png&w=128",
+  "ODDIK": "https://wsrv.nl/?url=liquipedia.net/commons/images/c/cc/ODDIK_full_darkmode.png&w=128",
+  "ODK": "https://wsrv.nl/?url=liquipedia.net/commons/images/c/cc/ODDIK_full_darkmode.png&w=128",
+  "Partizan": "https://wsrv.nl/?url=liquipedia.net/commons/images/8/8e/Partizan_Esports_2024_darkmode.png&w=128",
+  "PTZ": "https://wsrv.nl/?url=liquipedia.net/commons/images/8/8e/Partizan_Esports_2024_darkmode.png&w=128",
+  "Party Astronauts": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ef/Party_Astronauts_2020_lightmode.png&w=128",
+  "PA": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ef/Party_Astronauts_2020_lightmode.png&w=128",
+  "Passion UA": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/17/Passion_UA_2025_darkmode.png&w=128",
+  "PUA": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/17/Passion_UA_2025_darkmode.png&w=128",
+  "Permitta": "https://wsrv.nl/?url=liquipedia.net/commons/images/c/ca/Permitta_Esports_darkmode.png&w=128",
+  "PRM": "https://wsrv.nl/?url=liquipedia.net/commons/images/c/ca/Permitta_Esports_darkmode.png&w=128",
+  "Rare Atom": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5d/Rare_Atom_full_allmode.png&w=128",
+  "RA": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5d/Rare_Atom_full_allmode.png&w=128",
+  "Rebels": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ee/Rebels_full_darkmode.png&w=128",
+  "RBL": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/ee/Rebels_full_darkmode.png&w=128",
+  "Rooster": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/3d/Rooster_allmode.png&w=128",
+  "RST": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/3d/Rooster_allmode.png&w=128",
+  "RUSH B": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/1b/RUSH_B_allmode.png&w=128",
+  "RUSH": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/1b/RUSH_B_allmode.png&w=128",
+  "Sangal": "https://wsrv.nl/?url=liquipedia.net/commons/images/7/7a/Sangal_Esports_2020_allmode.png&w=128",
+  "SNG": "https://wsrv.nl/?url=liquipedia.net/commons/images/7/7a/Sangal_Esports_2020_allmode.png&w=128",
+  "Sashi": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/e3/Sashi_Esport_2023_allmode.png&w=128",
+  "SAS": "https://wsrv.nl/?url=liquipedia.net/commons/images/e/e3/Sashi_Esport_2023_allmode.png&w=128",
+  "SAW": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/2e/SAW_2023_full_darkmode.png&w=128",
+  "Sinners": "https://wsrv.nl/?url=liquipedia.net/commons/images/0/09/SINNERS_Esports_full_allmode.png&w=128",
+  "SIN": "https://wsrv.nl/?url=liquipedia.net/commons/images/0/09/SINNERS_Esports_full_allmode.png&w=128",
+  "Sprout": "https://wsrv.nl/?url=liquipedia.net/commons/images/6/66/Sprout_full_darkmode.png&w=128",
+  "SPRT": "https://wsrv.nl/?url=liquipedia.net/commons/images/6/66/Sprout_full_darkmode.png&w=128",
+  "Take Flyte": "https://wsrv.nl/?url=liquipedia.net/commons/images/b/bf/Take_Flyte_2025_allmode.png&w=128",
+  "TF": "https://wsrv.nl/?url=liquipedia.net/commons/images/b/bf/Take_Flyte_2025_allmode.png&w=128",
+  "Talon": "https://wsrv.nl/?url=liquipedia.net/commons/images/7/7c/Talon_Esports_2019_allmode.png&w=128",
+  "TLN": "https://wsrv.nl/?url=liquipedia.net/commons/images/7/7c/Talon_Esports_2019_allmode.png&w=128",
+  "The Huns": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/35/The_Huns_Esports_2025_allmode.png&w=128",
+  "HUNS": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/35/The_Huns_Esports_2025_allmode.png&w=128",
+  "TYLOO": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5f/TyLoo_2016_allmode.png&w=128",
+  "TYL": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5f/TyLoo_2016_allmode.png&w=128",
+  "W7M": "https://wsrv.nl/?url=liquipedia.net/commons/images/7/79/W7M_esports_full_allmode.png&w=128",
+  "Wildcard": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/14/Wildcard_2024_full_darkmode.png&w=128",
+  "WC": "https://wsrv.nl/?url=liquipedia.net/commons/images/1/14/Wildcard_2024_full_darkmode.png&w=128",
+  "Yawara": "https://wsrv.nl/?url=liquipedia.net/commons/images/8/8d/Yawara_Esports_darkmode.png&w=128",
+  "YAW": "https://wsrv.nl/?url=liquipedia.net/commons/images/8/8d/Yawara_Esports_darkmode.png&w=128",
+  "Zero Tenacity": "https://wsrv.nl/?url=liquipedia.net/commons/images/b/b7/Zero_Tenacity_2025_darkmode.png&w=128",
+  "ZT": "https://wsrv.nl/?url=liquipedia.net/commons/images/b/b7/Zero_Tenacity_2025_darkmode.png&w=128",
+};
+
 const normalize = (s: string) =>
   s
     .trim()
@@ -255,6 +376,10 @@ const normalize = (s: string) =>
 const NORMALIZED_LOGOS: Record<string, string> = {};
 for (const [key, url] of Object.entries(OFFICIAL_TEAM_LOGOS)) {
   NORMALIZED_LOGOS[normalize(key)] = url;
+}
+const NORMALIZED_CS2_LOGOS: Record<string, string> = {};
+for (const [key, url] of Object.entries(CS2_ONLY_LOGOS)) {
+  NORMALIZED_CS2_LOGOS[normalize(key)] = url;
 }
 
 /**
@@ -283,6 +408,9 @@ export function getOfficialLogo(name?: string | null, tag?: string | null): stri
     const normTag = normalize(tag);
     if (NORMALIZED_LOGOS[normTag]) return NORMALIZED_LOGOS[normTag];
   }
+
+  if (name && NORMALIZED_CS2_LOGOS[normalize(name)]) return NORMALIZED_CS2_LOGOS[normalize(name)];
+  if (tag && NORMALIZED_CS2_LOGOS[normalize(tag)]) return NORMALIZED_CS2_LOGOS[normalize(tag)];
 
   return undefined;
 }
