@@ -54,7 +54,7 @@ import {
 } from "./international";
 import { planPhaseAdvance } from "./advance";
 export { propagateBracketWinner };
-import { buildCs2SeedChampionships } from "./cs2-seed";
+import { buildCs2InitialCareer, buildCs2SeedChampionships, getCs2TeamRoster } from "./cs2-seed";
 import { detectLeaguePreset, getOfficialLogo } from "./official-logos";
 import { advanceInternationalEdition } from "./circuit";
 import { compressExistingLogo, deepCompressLogos, getStorageUsage } from "./image";
@@ -87,7 +87,7 @@ import {
 } from "./transfers";
 
 const STORAGE_KEY = "lol-esports-sim:v2";
-const CS2_SEED_FLAG = "lol-esports-sim:cs2-seeded";
+const CS2_SEED_FLAG = "lol-esports-sim:cs2-seeded-v2";
 const CAREER_KEY = "lol-esports-sim:career:v1";
 const CAREER_SEED_FLAG = "lol-esports-sim:career-seeded:v1";
 
@@ -1078,10 +1078,13 @@ const Ctx = createContext<StoreCtx | null>(null);
  * campeonatos salvos antes do recurso existir.
  */
 function ensureTeamRosters(c: Championship): Championship {
-  const fix = (t: Team): Team =>
-    t.roster && t.roster.length > 0 && !isGenericRoster(t.roster, t.name, t.tag)
-      ? t
-      : { ...t, roster: ensureRoster(t) };
+  const fix = (t: Team): Team => {
+    if (t.roster && t.roster.length > 0 && !isGenericRoster(t.roster, t.name, t.tag)) {
+      return t;
+    }
+    const cs2Roster = c.game === "cs2" ? getCs2TeamRoster(t.name, t.tag) : undefined;
+    return { ...t, roster: cs2Roster ?? ensureRoster(t) };
+  };
   return {
     ...c,
     teams: c.teams.map(fix),
@@ -1678,9 +1681,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let next = initial;
     try {
       if (!window.localStorage.getItem(CS2_SEED_FLAG)) {
-        const hasCs2 = initial.some((c) => c.game === "cs2");
-        if (!hasCs2) {
-          next = [...initial, ...buildCs2SeedChampionships()];
+        const existingCs2 = initial.filter((c) => c.game === "cs2");
+        const hasPlayedCs2 = existingCs2.some((c) =>
+          c.phases.some((p) => p.matches.some((m) => !!m.winnerId)),
+        );
+        if (existingCs2.length === 0 || !hasPlayedCs2) {
+          const nonCs2 = initial.filter((c) => c.game !== "cs2");
+          next = [...nonCs2, ...buildCs2SeedChampionships()];
+        } else {
+          next = initial.map((c) => (c.game === "cs2" ? ensureTeamRosters(c) : c));
         }
         window.localStorage.setItem(CS2_SEED_FLAG, "1");
       }
@@ -1690,11 +1699,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Primeira execução: migra os campeonatos atuais para a carreira
     // (idempotente pelas chaves de crédito — roda 1x só).
     try {
+      const seedCs2IfEmpty = (ledger: CareerLedger): CareerLedger => {
+        if (Object.keys(ledger.cs2 ?? {}).length > 0) return ledger;
+        const initCs2 = buildCs2InitialCareer();
+        const existingTitles = ledger.titles ?? [];
+        const hasCs2Titles = existingTitles.some((t) => t.game === "cs2");
+        return {
+          ...ledger,
+          cs2: initCs2.teams,
+          titles: hasCs2Titles ? existingTitles : [...initCs2.titles, ...existingTitles],
+        };
+      };
       if (!window.localStorage.getItem(CAREER_SEED_FLAG)) {
-        setCareer(seedCareer(next));
+        setCareer(seedCs2IfEmpty(seedCareer(next)));
         window.localStorage.setItem(CAREER_SEED_FLAG, "1");
       } else {
-        setCareer((prev) => backfillIntlHistory(prev, next));
+        setCareer((prev) => seedCs2IfEmpty(backfillIntlHistory(prev, next)));
       }
     } catch {
       /* ignore */

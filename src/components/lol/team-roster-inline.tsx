@@ -1,5 +1,5 @@
 import { ensureRoster, getResolvedAttrs, playerOverall } from "@/lib/lol/players";
-import type { Player, PlayerRole, Team } from "@/lib/lol/types";
+import type { GameId, Player, PlayerRole, Team } from "@/lib/lol/types";
 import { CountryFlag } from "./country-flag";
 import { PlayerAvatar } from "./player-avatar";
 
@@ -19,7 +19,16 @@ const ROLE_LABEL: Record<PlayerRole, string> = {
   support: "SUP",
 };
 
-function PlayerRowCard({ player }: { player: Player }) {
+const CS2_ROLE_LABEL: Record<PlayerRole, string> = {
+  top: "ENTRY",
+  jungle: "SUP",
+  mid: "STAR",
+  adc: "AWP",
+  support: "IGL",
+};
+
+function PlayerRowCard({ player, game = "lol" }: { player: Player; game?: GameId }) {
+  const roleMap = game === "cs2" ? CS2_ROLE_LABEL : ROLE_LABEL;
   const attrs = getResolvedAttrs(
     player.attrs,
     player.ign,
@@ -47,7 +56,7 @@ function PlayerRowCard({ player }: { player: Player }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="border border-border/70 bg-black/60 px-1 py-0.5 font-mono text-[9px] font-bold uppercase text-gold">
-              {ROLE_LABEL[player.role]}
+              {roleMap[player.role]}
             </span>
             {player.sub ? (
               <span className="border border-border/60 bg-muted/30 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
@@ -89,7 +98,7 @@ function PlayerRowCard({ player }: { player: Player }) {
  * Painel compacto e completo com todo o elenco do time (foto, IGN, nome real,
  * bandeira do país, rota, idade e atributos).
  */
-export function TeamRosterInline({ team }: { team?: Team | null }) {
+export function TeamRosterInline({ team, game = "lol" }: { team?: Team | null; game?: GameId }) {
   if (!team) return null;
   const roster = ensureRoster(team) ?? [];
   const starters = roster
@@ -129,7 +138,7 @@ export function TeamRosterInline({ team }: { team?: Team | null }) {
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {starters.map((p) => (
-          <PlayerRowCard key={p.id} player={p} />
+          <PlayerRowCard key={p.id} player={p} game={game} />
         ))}
       </div>
 
@@ -140,7 +149,7 @@ export function TeamRosterInline({ team }: { team?: Team | null }) {
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {subs.map((p) => (
-              <PlayerRowCard key={p.id} player={p} />
+              <PlayerRowCard key={p.id} player={p} game={game} />
             ))}
           </div>
         </div>

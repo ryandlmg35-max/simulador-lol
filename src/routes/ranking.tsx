@@ -194,7 +194,9 @@ function RankingPage() {
             <div className="flex items-center gap-3 border-l-2 border-gold/30 pl-4">
               <Trophy className="h-5 w-5 text-gold" />
               <span className="font-display text-xl uppercase tracking-[0.2em] text-bone">
-                Hall da Fama & Ranking Global
+                {game === "cs2"
+                  ? "Ranking Mundial CS2 (HLTV / VRS) & Hall da Fama"
+                  : "Hall da Fama & Ranking Global"}
               </span>
             </div>
           </div>

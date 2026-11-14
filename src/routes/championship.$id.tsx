@@ -933,7 +933,7 @@ function ChampionshipPage() {
                     </button>
                     {isExpanded ? (
                       <div className="border-t border-gold/30">
-                        <TeamRosterInline team={t} />
+                        <TeamRosterInline team={t} game={championship.game} />
                       </div>
                     ) : null}
                   </div>

@@ -220,6 +220,27 @@ export const OFFICIAL_TEAM_LOGOS: Record<string, string> = {
   "WBG": "https://wsrv.nl/?url=static.wikia.nocookie.net/lolesports_gamepedia_en/images/5/58/Weibo_Gaminglogo_square.png&w=128",
   "WE": "https://wsrv.nl/?url=static.wikia.nocookie.net/lolesports_gamepedia_en/images/7/78/Team_WE_logo.png&w=128",
   "Weibo Gaming": "https://wsrv.nl/?url=static.wikia.nocookie.net/lolesports_gamepedia_en/images/5/58/Weibo_Gaminglogo_square.png&w=128",
+  // CS2 teams (Liquipedia Counter-Strike)
+  "The MongolZ": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/2b/The_MongolZ_2024_03_allmode.png&w=128",
+  "MongolZ": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/2b/The_MongolZ_2024_03_allmode.png&w=128",
+  "MGLZ": "https://wsrv.nl/?url=liquipedia.net/commons/images/2/2b/The_MongolZ_2024_03_allmode.png&w=128",
+  "Aurora": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/32/Aurora_Gaming_2025_full_allmode.png&w=128",
+  "Aurora Gaming": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/32/Aurora_Gaming_2025_full_allmode.png&w=128",
+  "AUR": "https://wsrv.nl/?url=liquipedia.net/commons/images/3/32/Aurora_Gaming_2025_full_allmode.png&w=128",
+  "BetBoom": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5b/BetBoom_Team_2024_allmode.png&w=128",
+  "BetBoom Team": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5b/BetBoom_Team_2024_allmode.png&w=128",
+  "BB": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5b/BetBoom_Team_2024_allmode.png&w=128",
+  "9z": "https://wsrv.nl/?url=liquipedia.net/commons/images/8/87/9z_Team_2026_lightmode.png&w=128",
+  "9z Team": "https://wsrv.nl/?url=liquipedia.net/commons/images/8/87/9z_Team_2026_lightmode.png&w=128",
+  "9Z": "https://wsrv.nl/?url=liquipedia.net/commons/images/8/87/9z_Team_2026_lightmode.png&w=128",
+  "1win": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5c/1win_Team_2024_allmode.png&w=128",
+  "1w Team": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5c/1win_Team_2024_allmode.png&w=128",
+  "1WIN": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/5c/1win_Team_2024_allmode.png&w=128",
+  "Nemiga": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/53/Nemiga_Gaming_2020_red_full_allmode.png&w=128",
+  "Nemiga Gaming": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/53/Nemiga_Gaming_2020_red_full_allmode.png&w=128",
+  "NEM": "https://wsrv.nl/?url=liquipedia.net/commons/images/5/53/Nemiga_Gaming_2020_red_full_allmode.png&w=128",
+  "FUT": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/90/Futbolist_2021_lightmode.png&w=128",
+  "FUT Esports": "https://wsrv.nl/?url=liquipedia.net/commons/images/9/90/Futbolist_2021_lightmode.png&w=128",
 };
 
 const normalize = (s: string) =>
