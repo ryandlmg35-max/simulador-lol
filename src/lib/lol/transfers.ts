@@ -830,6 +830,10 @@ function moveSingleTeam(params: {
 
   const budget = getTeamBaseBudget(team, region, false, isSerieB, career, game);
   const currentImports = starters.filter((p) => isPlayerImport(p, region)).length;
+  const ownIgns = new Set(roster.map((p) => p.ign.trim().toLowerCase()));
+  const leagueIgns = new Set(
+    allLeagueTeams.flatMap((t) => (ensureRoster(t) ?? []).map((p) => p.ign.trim().toLowerCase())),
+  );
 
   // Avalia todo o elenco titular pelo Overall real (não só mecânica) para buscar
   // o maior salto de qualidade possível rumo ao título.
@@ -872,6 +876,7 @@ function moveSingleTeam(params: {
       const otherBudget = getTeamBaseBudget(other, region, false, isSerieB, career, game);
 
       for (const p of otherRoster) {
+        if (ownIgns.has(p.ign.trim().toLowerCase())) continue;
         const target = starterByRole.get(p.role);
         if (!target) continue;
         const candOvr = playerOverall(p);
@@ -978,6 +983,7 @@ function moveSingleTeam(params: {
 
   for (let i = 0; i < pool.length; i++) {
     const fa = pool[i];
+    if (leagueIgns.has(fa.ign.trim().toLowerCase())) continue;
     const target = starterByRole.get(fa.role);
     if (!target) continue;
 

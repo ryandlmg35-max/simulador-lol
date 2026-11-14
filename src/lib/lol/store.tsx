@@ -63,6 +63,7 @@ import {
   applyPlayerDeltas,
   effectiveRating,
   ensureRoster,
+  generateAcademyRookie,
   isGenericRoster,
   matchPlayerDeltas,
   pickStarters,
@@ -1265,9 +1266,10 @@ function syncTeamRostersAcrossChampionships(
 ): Championship[] {
   const game = source.game ?? "lol";
 
-  // Na Copa do Mundo, os jogadores defendem seleções nacionais: sincroniza a evolução
-  // dos atributos (mechanics, clutch, intlExperience, etc.) de volta para seus clubes!
-  if (isWorldCupChamp(source)) {
+  // Em torneios internacionais ou Copa do Mundo, os elencos são snapshots travados:
+  // sincroniza apenas a evolução de atributos (mechanics, clutch, intlExperience, etc.)
+  // de volta para o clube atual do jogador — NUNCA sobrescreve quem joga em qual time!
+  if (isWorldCupChamp(source) || isInternationalChamp(source)) {
     const playerByKey = new Map<string, Player>();
     for (const t of source.teams) {
       for (const p of t.roster ?? []) {
@@ -1289,7 +1291,9 @@ function syncTeamRostersAcrossChampionships(
     };
 
     return list.map((c) => {
-      if (c.id === source.id || (c.game ?? "lol") !== game || isWorldCupChamp(c)) return c;
+      if (c.id === source.id || (c.game ?? "lol") !== game || isWorldCupChamp(c) || isInternationalChamp(c)) {
+        return c;
+      }
       return {
         ...c,
         teams: c.teams.map(patchClubRoster),
@@ -1318,19 +1322,126 @@ function syncTeamRostersAcrossChampionships(
   };
 
   return list.map((c) => {
-    if (c.id === source.id || (c.game ?? "lol") !== game) return c;
+    if (c.id === source.id || (c.game ?? "lol") !== game || isInternationalChamp(c)) return c;
     const touchesA = c.teams.some((t) => t.name && byName.has(normKey(t.name)));
     const touchesB = c.serieB?.teams.some((t) => t.name && byName.has(normKey(t.name))) ?? false;
     if (!touchesA && !touchesB) return c;
-    return {
+    return deduplicateChampionshipRosters({
       ...c,
       teams: touchesA ? c.teams.map(patchTeam) : c.teams,
       serieB:
         touchesB && c.serieB
           ? { ...c.serieB, teams: c.serieB.teams.map(patchTeam) }
           : c.serieB,
-    };
+    });
   });
+}
+
+/**
+ * Garante que nenhum jogador (mesmo IGN) apareça duplicado em dois times
+ * diferentes dentro do mesmo campeonato (Série A + Série B).
+ */
+function deduplicateChampionshipRosters(c: Championship): Championship {
+  const allTeams = [...c.teams, ...(c.serieB?.teams ?? [])];
+  if (allTeams.length < 2) return c;
+
+  // Mapeia o destino mais recente no transferHistory (se o jogador se transferiu, o novo time tem prioridade)
+  const latestDestByIgn = new Map<string, string>();
+  for (const item of c.transferHistory ?? []) {
+    const key = normKey(item.playerIgn);
+    if (key && item.toTeam && !latestDestByIgn.has(key)) {
+      latestDestByIgn.set(key, normKey(item.toTeam));
+    }
+  }
+
+  // Descobre quem fica com cada IGN duplicado
+  const ownerByIgn = new Map<string, string>();
+  const usedIgns = new Set<string>();
+  const ignCounts = new Map<string, number>();
+
+  for (const t of allTeams) {
+    for (const p of t.roster ?? []) {
+      const k = normKey(p.ign);
+      usedIgns.add(k);
+      ignCounts.set(k, (ignCounts.get(k) ?? 0) + 1);
+    }
+  }
+
+  const hasDuplicates = Array.from(ignCounts.values()).some((n) => n > 1);
+  if (!hasDuplicates) return c;
+
+  for (const [k, count] of ignCounts.entries()) {
+    if (count <= 1) continue;
+    const preferredTeamName = latestDestByIgn.get(k);
+    let chosenTeamId: string | null = null;
+    if (preferredTeamName) {
+      const match = allTeams.find(
+        (t) =>
+          normKey(t.name) === preferredTeamName &&
+          (t.roster ?? []).some((p) => normKey(p.ign) === k),
+      );
+      if (match) chosenTeamId = match.id;
+    }
+    if (!chosenTeamId) {
+      // Prefere o time onde ele é titular; senão, o primeiro time encontrado
+      const starterTeam = allTeams.find((t) =>
+        (t.roster ?? []).some((p) => normKey(p.ign) === k && !p.sub),
+      );
+      const anyTeam = allTeams.find((t) =>
+        (t.roster ?? []).some((p) => normKey(p.ign) === k),
+      );
+      chosenTeamId = starterTeam?.id ?? anyTeam?.id ?? null;
+    }
+    if (chosenTeamId) ownerByIgn.set(k, chosenTeamId);
+  }
+
+  const fixTeam = (t: Team): Team => {
+    if (!t.roster || t.roster.length === 0) return t;
+    const seenInTeam = new Set<string>();
+    const kept: Player[] = [];
+    const removedStarterRoles: { role: Player["role"]; country?: string }[] = [];
+
+    for (const p of t.roster) {
+      const k = normKey(p.ign);
+      const ownerId = ownerByIgn.get(k);
+      if (seenInTeam.has(k) || (ownerId && ownerId !== t.id)) {
+        if (!p.sub) removedStarterRoles.push({ role: p.role, country: p.country });
+        continue;
+      }
+      seenInTeam.add(k);
+      kept.push(p);
+    }
+
+    if (removedStarterRoles.length === 0 && kept.length === t.roster.length) return t;
+
+    for (const missing of removedStarterRoles) {
+      const hasStarter = kept.some((p) => !p.sub && p.role === missing.role);
+      if (!hasStarter) {
+        const subIdx = kept.findIndex((p) => p.sub && p.role === missing.role);
+        if (subIdx >= 0) {
+          kept[subIdx] = { ...kept[subIdx], sub: false };
+        } else {
+          kept.push(
+            generateAcademyRookie({
+              role: missing.role,
+              region: t.region || c.region,
+              fallbackCountry: missing.country,
+              seedKey: `dedup:${c.id}:${t.id}:${missing.role}`,
+              usedIgns,
+            }),
+          );
+        }
+      }
+    }
+
+    return { ...t, roster: kept };
+  };
+
+  return {
+    ...c,
+    teams: c.teams.map(fixTeam),
+    serieB: c.serieB ? { ...c.serieB, teams: c.serieB.teams.map(fixTeam) } : undefined,
+  };
 }
 
 function patchTeamLogo(t: Team): Team {
@@ -1538,7 +1649,7 @@ function load(): Championship[] {
           : base.serieB,
       };
     });
-    return sanitizeLegacyClonedRosters(migrated);
+    return sanitizeLegacyClonedRosters(migrated).map(deduplicateChampionshipRosters);
   } catch {
     return [];
   }
