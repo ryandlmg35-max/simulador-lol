@@ -22,6 +22,10 @@ const KIND_BADGE: Record<TransferNews["kind"], { label: string; cls: string }> =
     label: "DISPENSA",
     cls: "border-blood/50 bg-blood/15 text-blood",
   },
+  retirement: {
+    label: "APOSENTADORIA",
+    cls: "border-amber-500/50 bg-amber-500/15 text-amber-300",
+  },
 };
 
 export function TransferWindowFeed({

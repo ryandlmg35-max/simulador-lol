@@ -728,19 +728,169 @@ export interface OffseasonContext {
   champion?: boolean;
   /** Time caiu/rebaixado (Série B). */
   relegated?: boolean;
+  /** Região do time (para gerar novatos da base com nacionalidade coerente). */
+  region?: string;
+  /** Nomes já em uso na liga (evita duplicar IGN de novatos). */
+  usedIgns?: Set<string>;
+  /** Permite aposentadoria nesta transição (padrão: true). */
+  allowRetirement?: boolean;
+}
+
+export interface RetiredPlayerSummary {
+  player: Player;
+  age: number;
+  finalOverall: number;
+  replacedByIgn?: string;
+  replacementKind?: "sub" | "rookie";
+}
+
+const ROOKIE_IGN_POOL: Record<string, string[]> = {
+  KR: ["Haru", "Kael", "Siwoo", "Calix", "Zinnie", "Duro", "Hype", "Peyz", "Lucid", "Berserker", "Raptor", "Jiwoo", "Sponge", "Paduck", "Pollu", "Roamer"],
+  CN: ["Milkyway", "JiaQi", "Creme", "Sheer", "1xn", "Vampire", "Feather", "tangyuan", "Heng", "Assum", "xiaolaohu", "Kepler", "naiyou", "Leave", "Starry"],
+  BR: ["Tatu", "Guigo", "Makes", "Curty", "Grevthar", "Marvin", "Kaze", "Ayu", "scary", "ProDelta", "Wos", "Fuuu", "Frosty", "Sting", "Yampi"],
+  EU: ["SkewMond", "Caliste", "Vladi", "Parus", "Myrwn", "Alvaro", "Supa", "Naak Nako", "Jackies", "Luon", "Isma", "Zoelys", "Thayger", "Oscarinin"],
+  NA: ["Sniper", "Yeon", "APA", "Massu", "Busio", "Meech", "DarkWings", "Cryogen", "Srtty", "Exyu", "Castle", "Sheiden", "Zeyzal"],
+  APAC: ["Rest", "JunJia", "HongQ", "Doggo", "Kaiwing", "Taki", "Kati", "Eddie", "Aress", "Pun", "Lived", "Yutapon", "Evi"],
+};
+
+const ROOKIE_GENERIC_POOL = [
+  "Kairo", "Nyx", "DravenX", "Vexel", "Soren", "Aether", "Koda", "Rivenge",
+  "Lumen", "Zeph", "Kaizen", "Noctis", "Talin", "Valkyr", "Orin", "Jinxed",
+];
+
+function countryForRegion(regionRaw?: string, fallbackCountry?: string): string {
+  const r = (regionRaw ?? "").trim().toUpperCase();
+  if (r.includes("LCK") || r === "KR") return "KR";
+  if (r.includes("LPL") || r === "CN") return "CN";
+  if (r.includes("CBLOL") || r === "BR") return "BR";
+  if (r.includes("LEC") || r === "EU") return "EU";
+  if (r.includes("LCS") || r === "NA") return "US";
+  if (r.includes("LCP") || r.includes("PCS") || r === "APAC") return "TW";
+  return fallbackCountry || "BR";
+}
+
+function rookiePoolKey(country: string): string {
+  const c = country.toUpperCase();
+  if (c === "KR") return "KR";
+  if (c === "CN") return "CN";
+  if (c === "BR") return "BR";
+  if (["US", "CA"].includes(c)) return "NA";
+  if (["TW", "HK", "VN", "JP", "SG", "PH", "TH"].includes(c)) return "APAC";
+  return "EU";
+}
+
+/**
+ * Gera um jovem talento da base (17–20 anos) para substituir um jogador aposentado.
+ */
+export function generateAcademyRookie(params: {
+  role: PlayerRole;
+  region?: string;
+  fallbackCountry?: string;
+  seedKey: string;
+  baseOverall?: number;
+  usedIgns?: Set<string>;
+}): Player {
+  const country = countryForRegion(params.region, params.fallbackCountry);
+  const poolKey = rookiePoolKey(country);
+  const candidates = [...(ROOKIE_IGN_POOL[poolKey] ?? []), ...ROOKIE_GENERIC_POOL];
+  const h = hashStr(`rookie:${params.seedKey}:${params.role}`);
+
+  let chosenIgn = "";
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[(h + i) % candidates.length];
+    if (!params.usedIgns || !params.usedIgns.has(candidate.toLowerCase())) {
+      chosenIgn = candidate;
+      break;
+    }
+  }
+  if (!chosenIgn) {
+    const base = candidates[h % candidates.length];
+    let suffix = 2;
+    while (params.usedIgns?.has(`${base}${suffix}`.toLowerCase())) suffix++;
+    chosenIgn = `${base}${suffix}`;
+  }
+  params.usedIgns?.add(chosenIgn.toLowerCase());
+
+  const age = 17 + (h % 4); // 17 a 20 anos
+  const regionFloor = poolKey === "KR" || poolKey === "CN" ? 72 : poolKey === "EU" || poolKey === "NA" ? 68 : 65;
+  const targetOvr = clampAttr(
+    Math.round((params.baseOverall ?? regionFloor) - 3 + (h % 8)),
+    regionFloor - 2,
+    80,
+  );
+
+  const rookie = makeCustomPlayer({
+    ign: chosenIgn,
+    role: params.role,
+    overall: targetOvr,
+    age,
+    country,
+    sub: false,
+  });
+  return {
+    ...rookie,
+    id: playerId(`${chosenIgn}_${params.seedKey}`, params.role),
+    custom: false,
+  };
+}
+
+/**
+ * Probabilidade (0–100) de aposentadoria ao atingir `nextAge` no fim do split.
+ * Garante renovação natural: jogadores de 30+ têm chance crescente e 34+ é compulsório.
+ */
+export function retirementChanceForPlayer(
+  player: Player,
+  nextAge: number,
+  ctx: Pick<OffseasonContext, "champion" | "relegated">,
+): number {
+  if (nextAge < 28) return 0;
+  if (nextAge >= 34) return 100;
+
+  let base = 0;
+  if (nextAge === 28) base = 6;
+  else if (nextAge === 29) base = 14;
+  else if (nextAge === 30) base = 28;
+  else if (nextAge === 31) base = 46;
+  else if (nextAge === 32) base = 66;
+  else if (nextAge === 33) base = 84;
+
+  const ovr = Math.round(playerOverall(player));
+  if (ovr < 72) base += 12;
+  else if (ovr >= 84) base -= 12;
+
+  if (player.sub) base += 10;
+  if (ctx.champion) base -= 8;
+  if (ctx.relegated) base += 10;
+
+  return Math.max(0, Math.min(100, base));
+}
+
+export function shouldPlayerRetire(
+  player: Player,
+  nextAge: number,
+  ctx: Pick<OffseasonContext, "splitLabel" | "champion" | "relegated">,
+): boolean {
+  const chance = retirementChanceForPlayer(player, nextAge, ctx);
+  if (chance <= 0) return false;
+  if (chance >= 100) return true;
+  const roll = hashStr(`retire:${player.id}:${ctx.splitLabel}`) % 100;
+  return roll < chance;
 }
 
 /**
  * Evolui UM elenco para o split seguinte. Retorna o elenco novo + o que
- * aconteceu (pra narrativa). Idade +1; mecânica de veterano (26+) degrada,
- * de jovem (≤21) desenvolve; IQ sobe até os 27; clutch reage à campanha.
+ * aconteceu (pra narrativa) + aposentadorias processadas (com promoção de
+ * reserva ou revelação da base para nunca deixar o time desfalcado).
  */
 export function evolveRoster(
   roster: Player[],
   ctx: OffseasonContext,
-): { roster: Player[]; notes: string[] } {
+): { roster: Player[]; notes: string[]; retired: RetiredPlayerSummary[] } {
   const notes: string[] = [];
-  const next = roster.map((p, idx) => {
+  const retired: RetiredPlayerSummary[] = [];
+  const allowRetirement = ctx.allowRetirement !== false;
+
+  const evolvedAll = roster.map((p, idx) => {
     const seed = hashStr(`${p.id}:${ctx.splitLabel}`);
     const age = (p.age ?? ageForIgn(p.ign)) + 1;
     const cur = getResolvedAttrs(p.attrs, p.ign, p.role, p.country, p.age);
@@ -794,19 +944,74 @@ export function evolveRoster(
       },
     };
 
-    // Narrativa pros casos marcados.
     const overallBefore = Math.round(playerOverall(p));
     const overallAfter = Math.round(playerOverall(evolved));
-    if (overallAfter - overallBefore >= 3)
-      notes.push(`${p.ign} evoluiu ${overallBefore}→${overallAfter}`);
-    if (overallBefore - overallAfter >= 3)
-      notes.push(`${p.ign} despencou ${overallBefore}→${overallAfter}`);
-    if (age >= 30 && (p.age ?? 0) < 30)
-      notes.push(`${p.ign} completou 30 — reta final da carreira`);
+    const retiring = allowRetirement && shouldPlayerRetire(evolved, age, ctx);
+
+    if (!retiring) {
+      if (overallAfter - overallBefore >= 3)
+        notes.push(`${p.ign} evoluiu ${overallBefore}→${overallAfter}`);
+      if (overallBefore - overallAfter >= 3)
+        notes.push(`${p.ign} despencou ${overallBefore}→${overallAfter}`);
+      if (age >= 30 && (p.age ?? 0) < 30)
+        notes.push(`${p.ign} completou 30 — reta final da carreira`);
+    }
+
     void idx;
-    return evolved;
+    return { evolved, retiring, overallAfter, age };
   });
-  return { roster: next, notes };
+
+  const activeRoster: Player[] = evolvedAll.filter((x) => !x.retiring).map((x) => x.evolved);
+  const retiringList = evolvedAll.filter((x) => x.retiring);
+
+  // Garante que nenhuma função titular fique vazia após aposentadorias
+  for (const r of retiringList) {
+    const p = r.evolved;
+    let replacedByIgn: string | undefined;
+    let replacementKind: "sub" | "rookie" | undefined;
+
+    if (!p.sub) {
+      const hasActiveStarterInRole = activeRoster.some((a) => !a.sub && a.role === p.role);
+      if (!hasActiveStarterInRole) {
+        const subIdx = activeRoster.findIndex((a) => a.sub && a.role === p.role);
+        if (subIdx >= 0) {
+          activeRoster[subIdx] = { ...activeRoster[subIdx], sub: false };
+          replacedByIgn = activeRoster[subIdx].ign;
+          replacementKind = "sub";
+        } else {
+          const rookie = generateAcademyRookie({
+            role: p.role,
+            region: ctx.region,
+            fallbackCountry: p.country,
+            seedKey: `${ctx.splitLabel}:${p.id}`,
+            baseOverall: r.overallAfter,
+            usedIgns: ctx.usedIgns,
+          });
+          activeRoster.push(rookie);
+          replacedByIgn = rookie.ign;
+          replacementKind = "rookie";
+        }
+      }
+    }
+
+    retired.push({
+      player: p,
+      age: r.age,
+      finalOverall: r.overallAfter,
+      replacedByIgn,
+      replacementKind,
+    });
+
+    const repText =
+      replacementKind === "sub"
+        ? ` (${replacedByIgn} assumiu a titularidade)`
+        : replacementKind === "rookie"
+          ? ` (base promoveu ${replacedByIgn}, ${activeRoster[activeRoster.length - 1]?.age ?? 18}a)`
+          : "";
+    notes.push(`${p.ign} (${r.age} anos) se aposentou${repText}`);
+  }
+
+  return { roster: activeRoster, notes, retired };
 }
 
 /** Recesso de sinergia: elenco mantido junta mais química (+10/split, teto 50);

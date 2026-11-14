@@ -7,7 +7,9 @@ import type {
   Match,
   MomentumEvent,
   Phase,
+  RetiredPlayerRecord,
   Team,
+  TransferNews,
 } from "./types";
 import { buildPhaseMatches, generateGSLGroup, uid } from "./generate";
 import { regressMomentumForSplit, seasonRecords } from "./momentum";
@@ -426,6 +428,15 @@ export function buildNextSplitChampionship(
   const recordsB = seasonRecords(c.serieB?.phases ?? []);
   const nextLabel = nextSeasonLabel(c.season) ?? "Próximo split";
   const offseasonLog: MomentumEvent[] = [];
+  const retirementNews: TransferNews[] = [];
+  const newRetiredRecords: RetiredPlayerRecord[] = [];
+
+  const usedIgns = new Set<string>();
+  for (const t of [...teamA, ...(teamB ?? []), ...(allChampionships ?? []).flatMap((x) => [...x.teams, ...(x.serieB?.teams ?? [])])]) {
+    for (const p of ensureRoster(t) ?? []) {
+      usedIgns.add(p.ign.trim().toLowerCase());
+    }
+  }
 
   const evolveTeam = (t: Team, division: 1 | 2): Team => {
     const roster = ensureRoster(t);
@@ -436,13 +447,78 @@ export function buildNextSplitChampionship(
       winRate: rec ? rec.winRate : null,
       champion: t.id === championId,
       relegated: relegatedIds.has(t.id),
+      region: t.region || c.region,
+      usedIgns,
     };
     const evolved = evolveRoster(roster, ctx);
-    if (evolved.notes.length > 0) {
-      const rose = evolved.notes.some((n) => n.includes("evoluiu"));
+    const nowIso = new Date().toISOString();
+
+    for (const r of evolved.retired) {
+      newRetiredRecords.push({
+        id: uid(),
+        ign: r.player.ign,
+        real: r.player.real,
+        role: r.player.role,
+        country: r.player.country,
+        age: r.age,
+        finalOverall: r.finalOverall,
+        teamId: t.id,
+        teamName: t.name,
+        teamTag: t.tag,
+        splitLabel: c.season ?? nextLabel,
+        retiredAt: nowIso,
+        replacedByIgn: r.replacedByIgn,
+        replacementKind: r.replacementKind,
+      });
+
+      const subNote =
+        r.replacementKind === "sub"
+          ? ` ${r.replacedByIgn} assume a titularidade.`
+          : r.replacementKind === "rookie"
+            ? ` Base promoveu ${r.replacedByIgn} para a rota ${r.player.role.toUpperCase()}.`
+            : "";
+
+      retirementNews.push({
+        id: uid(),
+        headline: `APOSENTADORIA: ${r.player.ign} (${r.age} anos, OVR ${r.finalOverall}) encerrou a carreira pela ${t.name}!${subNote}`,
+        fromTeam: t.name,
+        toTeam: "Aposentado",
+        playerIgn: r.player.ign,
+        role: r.player.role,
+        kind: "retirement",
+        date: nowIso,
+      });
+
+      if (r.replacementKind === "rookie" && r.replacedByIgn) {
+        retirementNews.push({
+          id: uid(),
+          headline: `BASE: ${t.name} promoveu o novato ${r.replacedByIgn} (${r.player.role.toUpperCase()}) para substituir ${r.player.ign}.`,
+          fromTeam: "Academy / Base",
+          toTeam: t.name,
+          playerIgn: r.replacedByIgn,
+          role: r.player.role,
+          kind: "promotion",
+          date: nowIso,
+        });
+      }
+
       offseasonLog.push({
         id: uid(),
-        at: new Date().toISOString(),
+        at: nowIso,
+        division,
+        teamId: t.id,
+        title: "Aposentadoria 🎖️",
+        detail: `${r.player.ign} (${r.age} anos · OVR ${r.finalOverall}) anunciou aposentadoria.${subNote}`,
+        delta: 0,
+      });
+    }
+
+    const nonRetireNotes = evolved.notes.filter((n) => !n.includes("se aposentou"));
+    if (nonRetireNotes.length > 0) {
+      const rose = nonRetireNotes.some((n) => n.includes("evoluiu"));
+      offseasonLog.push({
+        id: uid(),
+        at: nowIso,
         division,
         teamId: t.id,
         title: ctx.champion
@@ -452,7 +528,7 @@ export function buildNextSplitChampionship(
             : rose
               ? "Recesso: elenco evoluiu 📈"
               : "Recesso: elenco despencou 📉",
-        detail: evolved.notes.join(" · "),
+        detail: nonRetireNotes.join(" · "),
         delta: 0,
       });
     }
@@ -515,7 +591,8 @@ export function buildNextSplitChampionship(
     formerTeams: c.formerTeams,
     hasSecondDivision: teamB !== null,
     teams: teamA,
-    transferHistory: marketResult.news,
+    transferHistory: [...retirementNews, ...marketResult.news],
+    retiredPlayers: [...newRetiredRecords, ...(c.retiredPlayers ?? [])].slice(0, 120),
     phases: buildFreshPhases(
       c.phases,
       teamA.map((t) => t.id),

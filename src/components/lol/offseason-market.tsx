@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight, ArrowRightLeft, Lock, UserMinus, UserPlus, X, Zap } from "lucide-react";
+import { ArrowRight, ArrowRightLeft, Lock, Medal, UserMinus, UserPlus, X, Zap } from "lucide-react";
 import type { Championship, Player, Team } from "@/lib/lol/types";
 import { TeamLogo } from "./team-logo";
 import { isInternationalChamp, useStore } from "@/lib/lol/store";
@@ -29,6 +29,7 @@ export function OffseasonMarketDialog({
 
   const activeTeam = allTeams.find((t) => t.id === selectedTeamId) || teamsA[0];
   const transferNews = championship.transferHistory ?? [];
+  const retiredPlayers = championship.retiredPlayers ?? [];
 
   // Mostra apenas agentes livres que não estão atuando em nenhum time desta liga
   const usedIgns = new Set(
@@ -249,21 +250,32 @@ export function OffseasonMarketDialog({
               ) : (
                 transferNews.map((item) => {
                   const Icon =
-                    item.kind === "release"
-                      ? UserMinus
-                      : item.kind === "trade"
-                        ? ArrowRightLeft
-                        : UserPlus;
+                    item.kind === "retirement"
+                      ? Medal
+                      : item.kind === "release"
+                        ? UserMinus
+                        : item.kind === "trade"
+                          ? ArrowRightLeft
+                          : UserPlus;
+                  const isRetirement = item.kind === "retirement";
                   return (
                     <div
                       key={item.id}
-                      className="rounded-xl border border-border/60 bg-card/40 p-2.5 text-xs space-y-1"
+                      className={`rounded-xl border p-2.5 text-xs space-y-1 ${
+                        isRetirement
+                          ? "border-amber-500/40 bg-amber-500/10"
+                          : "border-border/60 bg-card/40"
+                      }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1 font-display font-bold text-gold">
+                        <span className={`inline-flex items-center gap-1 font-display font-bold ${isRetirement ? "text-amber-300" : "text-gold"}`}>
                           <Icon className="h-3 w-3" /> {item.playerIgn} ({item.role.toUpperCase()})
                         </span>
-                        {item.value ? (
+                        {isRetirement ? (
+                          <span className="font-mono text-[9px] uppercase text-amber-300">
+                            Aposentado
+                          </span>
+                        ) : item.value ? (
                           <span className="font-mono text-[10px] text-emerald-400">
                             ${item.value}k
                           </span>
@@ -280,6 +292,35 @@ export function OffseasonMarketDialog({
                 })
               )}
             </div>
+
+            {!isIntl && retiredPlayers.length > 0 ? (
+              <div className="space-y-2 pt-2 border-t border-border/40">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                  <Medal className="h-3.5 w-3.5" /> Mural de Aposentados ({retiredPlayers.length})
+                </span>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {retiredPlayers.slice(0, 12).map((rp) => (
+                    <div
+                      key={rp.id}
+                      className="flex items-center justify-between rounded-lg border border-amber-500/25 bg-black/40 px-2.5 py-1.5 text-[11px]"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-display font-bold text-bone">{rp.ign}</span>{" "}
+                        <span className="text-muted-foreground">
+                          ({rp.role.toUpperCase()} · {rp.age}a)
+                        </span>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {rp.teamName} · {rp.splitLabel}
+                        </div>
+                      </div>
+                      <span className="font-mono text-[10px] text-amber-300 shrink-0">
+                        OVR {rp.finalOverall}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 

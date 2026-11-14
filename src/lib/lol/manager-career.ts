@@ -8,6 +8,7 @@ import {
   clampAttr,
   hashStr,
   evolveRoster,
+  shouldPlayerRetire,
 } from "./players";
 import { getOfficialLogo } from "./official-logos";
 import { uid } from "./generate";
@@ -3017,29 +3018,70 @@ export function startNextCareerSplit(state: ManagerCareerState): ManagerCareerSt
 
   // Evolui atributos dos jogadores no fim de temporada (ou ajuste leve entre splits)
   const evolvedPlayers: CareerPlayer[] = [];
+  const usedIgns = new Set(state.players.map((p) => p.ign.trim().toLowerCase()));
+  const retirementEvents: ManagerCareerState["events"] = [];
+  let retiredCount = 0;
+
   for (const team of state.teams) {
     const roster = state.players.filter((p) => p.teamId === team.id);
-    const res = isNewYear
+    const evolvedResult = isNewYear
       ? evolveRoster(roster, {
           splitLabel: nextSplitLabel,
           champion: state.leagues[team.league]?.championId === team.id,
           winRate: 0.6,
-        }).roster
-      : roster;
+          region: team.league,
+          usedIgns,
+        })
+      : { roster, notes: [], retired: [] };
 
-    for (let i = 0; i < roster.length; i++) {
-      const orig = roster[i];
-      const upd = res[i] ?? orig;
-      let nextPlayer: CareerPlayer = {
-        ...orig,
-        ...upd,
-        overall: Math.round(playerOverall(upd)),
-        wins: 0,
-        losses: 0,
-        mvps: 0,
-      };
+    for (const r of evolvedResult.retired) {
+      retiredCount++;
+      if (team.isUserTeam || r.finalOverall >= 78) {
+        const repInfo = r.replacedByIgn
+          ? r.replacementKind === "sub"
+            ? ` ${r.replacedByIgn} assumiu a titularidade.`
+            : ` A base promoveu ${r.replacedByIgn} (${r.player.role.toUpperCase()}).`
+          : "";
+        retirementEvents.push({
+          id: uid(),
+          step: state.step + 1,
+          splitLabel: nextSplitLabel,
+          category: "transfer",
+          headline: `Aposentadoria: ${r.player.ign} (${r.age} anos) pendurou o mouse na ${team.name}`,
+          detail: `Após carreira com OVR final ${r.finalOverall}, ${r.player.ign} encerrou sua trajetória profissional.${repInfo}`,
+          impactTags: ["Aposentadoria", team.tag, `OVR ${r.finalOverall}`],
+        });
+      }
+    }
+
+    for (const upd of evolvedResult.roster) {
+      const orig = roster.find((p) => p.id === upd.id);
+      const ovr = Math.round(playerOverall(upd));
+      let nextPlayer: CareerPlayer = orig
+        ? {
+            ...orig,
+            ...upd,
+            overall: ovr,
+            wins: 0,
+            losses: 0,
+            mvps: 0,
+          }
+        : {
+            ...upd,
+            teamId: team.id,
+            teamName: team.name,
+            league: team.league,
+            overall: ovr,
+            marketValueK: computePlayerMarketValueK(ovr, upd.age, team.league),
+            salaryPerRoundK: computeFairSalaryK(ovr, team.league),
+            contractSplits: 3,
+            morale: 80,
+            wins: 0,
+            losses: 0,
+            mvps: 0,
+          };
       // Bônus do analista de desempenho para o clube do usuário
-      if (team.isUserTeam && analyst && analyst.rating >= 75 && (nextPlayer.age ?? 21) <= 23) {
+      if (orig && team.isUserTeam && analyst && analyst.rating >= 75 && (nextPlayer.age ?? 21) <= 23) {
         nextPlayer = {
           ...nextPlayer,
           attrs: {
@@ -3059,10 +3101,22 @@ export function startNextCareerSplit(state: ManagerCareerState): ManagerCareerSt
     }
   }
 
-  // Preserva Free Agents
+  // Preserva (e envelhece/aposenta no ano novo) Free Agents
   for (const p of state.players) {
     if (!p.teamId) {
-      evolvedPlayers.push({ ...p, wins: 0, losses: 0, mvps: 0 });
+      const nextAge = isNewYear ? (p.age ?? 22) + 1 : p.age;
+      if (isNewYear && nextAge && shouldPlayerRetire(p, nextAge, { splitLabel: nextSplitLabel })) {
+        retiredCount++;
+        continue;
+      }
+      evolvedPlayers.push({
+        ...p,
+        age: nextAge,
+        marketValueK: computePlayerMarketValueK(p.overall, nextAge, p.league),
+        wins: 0,
+        losses: 0,
+        mvps: 0,
+      });
     }
   }
 
@@ -3129,6 +3183,7 @@ export function startNextCareerSplit(state: ManagerCareerState): ManagerCareerSt
         detail: `Cota inicial de ${formatMoneyK(splitGrantK)} liberada, ${aiOffseason.records.length} transferências da IA concluídas e 3 propostas de patrocínio na mesa.`,
         impactTags: [`Caixa +${formatMoneyK(splitGrantK)}`, "Novos Patrocinadores"],
       },
+      ...retirementEvents.slice(0, 8),
       ...aiOffseason.events,
       ...state.events,
     ].slice(0, 60),

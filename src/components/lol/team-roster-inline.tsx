@@ -61,7 +61,16 @@ function PlayerRowCard({ player }: { player: Player }) {
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
             {player.real ? <span className="truncate">{player.real}</span> : null}
-            {player.age ? <span>· {player.age} anos</span> : null}
+            {player.age ? (
+              <span className="inline-flex items-center gap-1">
+                · {player.age} anos
+                {player.age >= 30 ? (
+                  <span className="border border-amber-500/40 bg-amber-500/10 px-1 py-0.2 font-mono text-[8px] uppercase text-amber-300">
+                    Reta final
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>

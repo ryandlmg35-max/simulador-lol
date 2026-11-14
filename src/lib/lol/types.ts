@@ -74,7 +74,7 @@ export interface TransferNews {
   toTeam: string;
   playerIgn: string;
   role: PlayerRole;
-  kind: "signing" | "release" | "trade" | "promotion";
+  kind: "signing" | "release" | "trade" | "promotion" | "retirement";
   value?: number;
   date?: string;
 }
@@ -346,6 +346,23 @@ export interface CareerLedger {
   domesticCap?: Record<string, number>;
 }
 
+export interface RetiredPlayerRecord {
+  id: string;
+  ign: string;
+  real?: string;
+  role: PlayerRole;
+  country?: string;
+  age: number;
+  finalOverall: number;
+  teamId?: string;
+  teamName: string;
+  teamTag?: string;
+  splitLabel: string;
+  retiredAt: string;
+  replacedByIgn?: string;
+  replacementKind?: "sub" | "rookie";
+}
+
 export interface Championship {
   id: string;
   name: string;
@@ -382,6 +399,8 @@ export interface Championship {
   history?: ChampionHistoryEntry[];
   /** Histórico e notícias das janelas de transferências */
   transferHistory?: TransferNews[];
+  /** Jogadores aposentados ao longo das temporadas */
+  retiredPlayers?: RetiredPlayerRecord[];
   /**
    * Mês agendado no calendário de temporada (1 = Janeiro … 12 = Dezembro).
    * Usado para ordenar e exibir o calendário anual.
