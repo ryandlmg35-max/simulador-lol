@@ -579,6 +579,7 @@ function CreatePage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link
             to="/"
+            search={{ game }}
             className="flex items-center gap-2 font-display text-sm uppercase tracking-widest text-muted-foreground hover:text-bone"
           >
             <ArrowLeft className="h-4 w-4" /> Voltar

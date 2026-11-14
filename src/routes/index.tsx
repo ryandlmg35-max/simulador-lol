@@ -11,11 +11,27 @@ import type { GameId } from "@/lib/lol/types";
 
 type Search = { game?: GameId };
 
+const LAST_GAME_KEY = "lol-esports-sim:last-game";
+
 export const Route = createFileRoute("/")({
   component: Index,
-  validateSearch: (s: Record<string, unknown>): Search => ({
-    game: s.game === "cs2" ? "cs2" : "lol",
-  }),
+  validateSearch: (s: Record<string, unknown>): Search => {
+    if (s.game === "cs2" || s.game === "lol") {
+      try {
+        window.localStorage.setItem(LAST_GAME_KEY, s.game);
+      } catch {
+        /* ignore */
+      }
+      return { game: s.game };
+    }
+    try {
+      const saved = window.localStorage.getItem(LAST_GAME_KEY);
+      if (saved === "cs2" || saved === "lol") return { game: saved };
+    } catch {
+      /* ignore */
+    }
+    return { game: "lol" };
+  },
 });
 
 const GAMES: Array<{ id: GameId; label: string; accent: string; badge: string }> = [
@@ -160,7 +176,7 @@ function Index() {
       <ConfirmDialog {...confirmDialog} />
       <header className="sticky top-0 z-40 border-b border-gold/25 bg-ink/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/" search={{ game }} className="flex items-center gap-3">
             <div
               className="notch-tl flex h-11 w-11 items-center justify-center font-display text-xl text-bone shadow-[0_8px_24px_-10px_rgba(0,0,0,0.9)]"
               style={{ background: activeGame.accent }}

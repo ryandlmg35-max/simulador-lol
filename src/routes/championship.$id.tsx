@@ -573,6 +573,7 @@ function ChampionshipPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <Link
             to="/"
+            search={{ game: championship.game ?? "lol" }}
             className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" /> Todos os campeonatos
