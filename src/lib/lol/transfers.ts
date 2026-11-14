@@ -1,6 +1,6 @@
 import type { CareerLedger, Championship, GameId, Player, PlayerRole, Team, TransferNews } from "./types";
 import { uid } from "./generate";
-import { ensureRoster, getResolvedAttrs, pickStarters } from "./players";
+import { ensureRoster, getResolvedAttrs, pickStarters, playerOverall } from "./players";
 import { getOfficialRegionRanking, normalizeRegion } from "./international";
 
 // ---------------------------------------------------------------------------
@@ -738,145 +738,186 @@ function moveSingleTeam(params: {
   const budget = getTeamBaseBudget(team, region, false, isSerieB, career, game);
   const currentImports = starters.filter((p) => isPlayerImport(p, region)).length;
 
-  const rankedStarters = [...starters].sort((a, b) => {
-    const oa = getResolvedAttrs(a.attrs, a.ign, a.role, a.country, a.age).mechanics;
-    const ob = getResolvedAttrs(b.attrs, b.ign, b.role, b.country, b.age).mechanics;
-    return oa - ob;
-  });
+  // Avalia todo o elenco titular pelo Overall real (não só mecânica) para buscar
+  // o maior salto de qualidade possível rumo ao título.
+  const starterByRole = new Map<PlayerRole, { player: Player; ovr: number; mech: number }>();
+  for (const s of starters) {
+    const ovr = playerOverall(s);
+    const mech = getResolvedAttrs(s.attrs, s.ign, s.role, s.country, s.age).mechanics;
+    starterByRole.set(s.role, { player: s, ovr, mech });
+  }
 
+  const rankedStarters = [...starters].sort((a, b) => playerOverall(a) - playerOverall(b));
   const weakest = rankedStarters[0];
-  const weakestAttrs = getResolvedAttrs(
-    weakest.attrs,
-    weakest.ign,
-    weakest.role,
-    weakest.country,
-    weakest.age,
-  );
 
-  // 1. Tenta contratar/puxar jogador de outro time da mesma liga local (troca ou compra direta)
+  // Pontuação de ambição: prioriza quem eleva mais o nível do time e tem perfil vencedor (clutch/ovr alto)
+  const scoreUpgrade = (cand: Player, targetStarter: Player, isImport: boolean): number => {
+    const candOvr = playerOverall(cand);
+    const curOvr = playerOverall(targetStarter);
+    const gain = candOvr - curOvr;
+    const attrs = getResolvedAttrs(cand.attrs, cand.ign, cand.role, cand.country, cand.age);
+    const titleProfile = attrs.clutch * 0.12 + attrs.intlExperience * 0.08 + attrs.mentality * 0.08;
+    // Leve preferência por nacional apenas em caso de empate técnico (+1.5); se o gringo for melhor, ganha!
+    const domesticTiebreak = isImport ? 0 : 1.5;
+    return gain * 2.2 + candOvr * 0.45 + titleProfile + domesticTiebreak;
+  };
+
+  // 1. Tenta contratar/puxar o MELHOR jogador disponível de outro time da mesma liga local
   let nextLeagueTeams = allLeagueTeams;
-  if (Math.random() < 0.35 && allLeagueTeams.length >= 2) {
+  if (Math.random() < 0.45 && allLeagueTeams.length >= 2) {
+    let bestIntra: {
+      other: Team;
+      otherRoster: Player[];
+      candidate: Player;
+      targetStarter: Player;
+      score: number;
+    } | null = null;
+
     for (const other of allLeagueTeams) {
       if (other.id === team.id) continue;
       const otherRoster = ensureRoster(other) ?? [];
-      // Pega reserva ou jogador da mesma role de time menor/outro time
-      const candidate = otherRoster.find((p) => {
-        if (p.role !== weakest.role) return false;
-        const pAttrs = getResolvedAttrs(p.attrs, p.ign, p.role, p.country, p.age);
-        if (pAttrs.mechanics <= weakestAttrs.mechanics + 2) return false;
+      const otherBudget = getTeamBaseBudget(other, region, false, isSerieB, career, game);
+
+      for (const p of otherRoster) {
+        const target = starterByRole.get(p.role);
+        if (!target) continue;
+        const candOvr = playerOverall(p);
+        if (candOvr <= target.ovr + 2) continue;
+
         const isImp = isPlayerImport(p, region);
-        if (isImp && currentImports >= 2 && !isPlayerImport(weakest, region)) return false;
+        if (isImp && currentImports >= 2 && !isPlayerImport(target.player, region)) continue;
+
         const salary = getPlayerSalary(p, region, career, game);
-        if (salary > budget * 0.45) return false;
-        // Só puxa se for reserva lá ou se o comprador tiver orçamento maior
-        const otherBudget = getTeamBaseBudget(other, region, false, isSerieB, career, game);
-        return !!p.sub || budget > otherBudget + 150;
+        const maxShare = candOvr >= 82 ? 0.55 : 0.46;
+        if (salary > budget * maxShare) continue;
+
+        // Puxa se for reserva lá ou se o comprador tiver ambição/orçamento superior
+        if (!p.sub && budget <= otherBudget + 100) continue;
+
+        const sc = scoreUpgrade(p, target.player, isImp);
+        if (!bestIntra || sc > bestIntra.score) {
+          bestIntra = { other, otherRoster, candidate: p, targetStarter: target.player, score: sc };
+        }
+      }
+    }
+
+    if (bestIntra) {
+      const { other, otherRoster, candidate, targetStarter } = bestIntra;
+      const bought: Player = {
+        ...candidate,
+        id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        sub: false,
+      };
+      const buyerRoster = roster.map((p) => (p.id === targetStarter.id ? bought : p));
+      const sellerNeedsSub = !candidate.sub;
+      const swappedForSeller: Player = { ...targetStarter, sub: false };
+      const updatedSellerRoster = sellerNeedsSub
+        ? otherRoster.map((p) => (p.id === candidate.id ? swappedForSeller : p))
+        : otherRoster.filter((p) => p.id !== candidate.id);
+
+      if (!sellerNeedsSub) {
+        buyerRoster.push({ ...targetStarter, sub: true });
+      }
+
+      const updatedBuyer: Team = {
+        ...team,
+        roster: buyerRoster,
+        synergy: Math.max(0, (team.synergy ?? 10) - 10),
+      };
+      nextLeagueTeams = allLeagueTeams.map((t) => {
+        if (t.id === team.id) return updatedBuyer;
+        if (t.id === other.id) {
+          return {
+            ...other,
+            roster: updatedSellerRoster,
+            synergy: Math.max(0, (other.synergy ?? 10) - 8),
+          };
+        }
+        return t;
       });
 
-      if (candidate) {
-        const bought: Player = {
-          ...candidate,
-          id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          sub: false,
-        };
-        const buyerRoster = roster.map((p) =>
-          p.id === weakest.id ? bought : p,
-        );
-        // O antigo titular vai para o banco (ou vira moeda de troca se o vendedor perdeu titular)
-        const sellerNeedsSub = !candidate.sub;
-        const swappedForSeller: Player = { ...weakest, sub: false };
-        const updatedSellerRoster = sellerNeedsSub
-          ? otherRoster.map((p) => (p.id === candidate.id ? swappedForSeller : p))
-          : otherRoster.filter((p) => p.id !== candidate.id);
-
-        if (!sellerNeedsSub) {
-          buyerRoster.push({ ...weakest, sub: true });
-        }
-
-        const updatedBuyer: Team = {
-          ...team,
-          roster: buyerRoster,
-          synergy: Math.max(0, (team.synergy ?? 10) - 10),
-        };
-        nextLeagueTeams = allLeagueTeams.map((t) => {
-          if (t.id === team.id) return updatedBuyer;
-          if (t.id === other.id) {
-            return {
-              ...other,
-              roster: updatedSellerRoster,
-              synergy: Math.max(0, (other.synergy ?? 10) - 8),
-            };
-          }
-          return t;
-        });
-
-        return {
-          updatedTeam: updatedBuyer,
-          updatedAllTeams: nextLeagueTeams,
-          newsItem: {
-            id: uid(),
-            headline: sellerNeedsSub
-              ? `TROCA NA LIGA: ${team.name} acerta com ${candidate.ign} (ex-${other.name}) e envia ${weakest.ign} em troca!`
-              : `TRANSFERÊNCIA: ${team.name} contrata ${candidate.ign} junto à ${other.name} para a rota ${candidate.role.toUpperCase()}!`,
-            fromTeam: other.name,
-            toTeam: team.name,
-            playerIgn: candidate.ign,
-            role: candidate.role,
-            kind: "trade",
-            value: getPlayerSalary(candidate, region, career, game),
-            date: new Date().toISOString(),
-          },
-        };
-      }
+      return {
+        updatedTeam: updatedBuyer,
+        updatedAllTeams: nextLeagueTeams,
+        newsItem: {
+          id: uid(),
+          headline: sellerNeedsSub
+            ? `TROCA NA LIGA: ${team.name} acerta com ${candidate.ign} (ex-${other.name}) e envia ${targetStarter.ign} em troca!`
+            : `TRANSFERÊNCIA: ${team.name} contrata ${candidate.ign} junto à ${other.name} para a rota ${candidate.role.toUpperCase()}!`,
+          fromTeam: other.name,
+          toTeam: team.name,
+          playerIgn: candidate.ign,
+          role: candidate.role,
+          kind: "trade",
+          value: getPlayerSalary(candidate, region, career, game),
+          date: new Date().toISOString(),
+        },
+      };
     }
   }
 
-  // 2. Procura no pool de Agentes Livres (prioriza jogadores da própria região; imports só raramente e dentro do limite de 2)
-  const allowImportSearch = Math.random() < 0.22;
-  const domesticIdx = pool.findIndex((fa) => {
-    if (fa.role !== weakest.role) return false;
-    if (isPlayerImport(fa, region)) return false;
-    const faAttrs = getResolvedAttrs(fa.attrs, fa.ign, fa.role, fa.country, fa.age);
-    if (faAttrs.mechanics <= weakestAttrs.mechanics + 1) return false;
+  // 2. Procura no pool de Agentes Livres pelo MELHOR reforço disponível (nacional ou gringo)
+  // visando título: analisa todas as rotas e escolhe o maior ganho real dentro do orçamento.
+  let bestPoolPick: {
+    index: number;
+    candidate: Player;
+    targetStarter: Player;
+    score: number;
+  } | null = null;
+
+  for (let i = 0; i < pool.length; i++) {
+    const fa = pool[i];
+    const target = starterByRole.get(fa.role);
+    if (!target) continue;
+
+    const candOvr = playerOverall(fa);
+    const minJump = candOvr >= 82 ? 1.5 : 2;
+    if (candOvr <= target.ovr + minJump) continue;
+
+    const isImp = isPlayerImport(fa, region);
+    if (isImp && currentImports >= 2 && !isPlayerImport(target.player, region)) continue;
+
     const salary = getPlayerSalary(fa, region, career, game);
-    if (salary > budget * 0.42) return false;
-    return true;
-  });
+    // Para estrelas (OVR 82+) que mudam o patamar do time, aceita investir até 54% do orçamento
+    const maxShare = candOvr >= 82 ? 0.54 : 0.45;
+    if (salary > budget * maxShare) continue;
 
-  const candidateIdx =
-    domesticIdx >= 0
-      ? domesticIdx
-      : allowImportSearch
-        ? pool.findIndex((fa) => {
-            if (fa.role !== weakest.role) return false;
-            const faAttrs = getResolvedAttrs(fa.attrs, fa.ign, fa.role, fa.country, fa.age);
-            if (faAttrs.mechanics <= weakestAttrs.mechanics + 2) return false;
-            const isImp = isPlayerImport(fa, region);
-            if (isImp && currentImports >= 2 && !isPlayerImport(weakest, region)) return false;
-            const salary = getPlayerSalary(fa, region, career, game);
-            if (salary > budget * 0.42) return false;
-            return true;
-          })
-        : -1;
+    const sc = scoreUpgrade(fa, target.player, isImp);
+    if (!bestPoolPick || sc > bestPoolPick.score) {
+      bestPoolPick = { index: i, candidate: fa, targetStarter: target.player, score: sc };
+    }
+  }
 
-  if (candidateIdx >= 0) {
-    const signed = pool.splice(candidateIdx, 1)[0];
+  if (bestPoolPick) {
+    const signed = pool.splice(bestPoolPick.index, 1)[0];
+    const replacedStarter = bestPoolPick.targetStarter;
+    const replacedMech = getResolvedAttrs(
+      replacedStarter.attrs,
+      replacedStarter.ign,
+      replacedStarter.role,
+      replacedStarter.country,
+      replacedStarter.age,
+    ).mechanics;
+
     const newPlayer: Player = {
       ...signed,
       id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       sub: false,
     };
 
-    const releasedOld = (weakest.age ?? 22) >= 26 || weakestAttrs.mechanics < 70;
+    const releasedOld = (replacedStarter.age ?? 22) >= 26 || replacedMech < 70;
     let updatedRoster: Player[];
     let newsItem: TransferNews;
 
     if (releasedOld) {
-      pool.push({ ...weakest, sub: false });
-      updatedRoster = roster.filter((p) => p.id !== weakest.id).concat(newPlayer);
+      pool.push({ ...replacedStarter, sub: false });
+      updatedRoster = roster.filter((p) => p.id !== replacedStarter.id).concat(newPlayer);
+      const isImp = isPlayerImport(signed, region);
       newsItem = {
         id: uid(),
-        headline: `${team.name} dispensa ${weakest.ign} para o mercado livre e contrata ${signed.ign}!`,
+        headline: isImp
+          ? `REFORÇO DE PESO (IMPORT): ${team.name} dispensa ${replacedStarter.ign} e contrata o gringo ${signed.ign} [${signed.country}] para buscar o título!`
+          : `${team.name} dispensa ${replacedStarter.ign} para o mercado livre e contrata ${signed.ign}!`,
         fromTeam: "Agente Livre",
         toTeam: team.name,
         playerIgn: signed.ign,
@@ -887,8 +928,8 @@ function moveSingleTeam(params: {
       };
     } else {
       updatedRoster = roster
-        .map((p) => (p.id === weakest.id ? newPlayer : p))
-        .concat({ ...weakest, sub: true });
+        .map((p) => (p.id === replacedStarter.id ? newPlayer : p))
+        .concat({ ...replacedStarter, sub: true });
       const isImp = isPlayerImport(signed, region);
       newsItem = {
         id: uid(),
