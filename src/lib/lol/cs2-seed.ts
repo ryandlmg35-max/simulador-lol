@@ -550,6 +550,181 @@ export const CS2_TEAMS_DB: Cs2SeedTeamSpec[] = [
   },
 ];
 
+type Tier2SeedTuple = [
+  name: string,
+  tag: string,
+  region: "EU" | "CIS" | "SA" | "NA" | "ASIA",
+  country: string,
+  color: string,
+  coach: string,
+  elo: number,
+  points: number,
+  wins: number,
+  losses: number,
+];
+
+const REGIONAL_NICK_POOLS: Record<string, string[]> = {
+  EU: [
+    "k0nfig", "FASHR", "syrsoN", "tabseN", "jks", "Krimbo", "neaLaN", "k1to", "kyuubii", "tiziaN",
+    "hades", "Goofy", "kRaSnaL", "Maka", "bodyy", "Lucky", "afro", "Djoko", "Ex3rcice", "Bymas",
+    "niko", "acoR", "regali", "Patti", "Cabbi", "nodios", "Queenix", "nota", "sl3nd", "volt",
+    "CYPHER", "Thomas", "Surreal", "MiGHTYMAX", "roman", "story", "ewjerkz", "arrozdoce", "ag1l", "rmn",
+    "Plopski", "nawwk", "ztr", "bobeksde", "hampus", "isak", "joel", "Silence", "Sjuush", "Staehr",
+  ],
+  CIS: [
+    "lollipop21k", "Forester", "KENSI", "Norwi", "NickelBack", "dek0", "sdy", "w0nderful", "npl", "headtr1ck",
+    "fear", "DemQQ", "bondik", "j3kie", "OWNER", "glowiing", "d1Ledez", "tN1R", "TRAVIS", "clax",
+    "Lack1", "r3salt", "FinigaN", "Aunkere", "Sdaim", "sh1geo", "Magnojez", "zweih", "zorte", "Jerry",
+    "Krad", "El1an", "kelieN", "Patsi", "KaiR0N", "Djon8", "gokushima", "sm3t", "Alv", "m1QUSE",
+  ],
+  SA: [
+    "vsm", "lucaozy", "biguzera", "nqz", "chelo", "drop", "saffee", "exit", "brnz4n", "tuurtle",
+    "skullz", "decenty", "noway", "hardzao", "wood7", "chay", "piriajr", "koala", "togs", "drg",
+    "b4rtiN", "maluk3", "zeph", "detr0it", "meyern", "nbl", "deco", "tomaszin", "noktse", "1962",
+    "kauez", "snowzin", "gafolo", "card", "ckzao", "history", "ponter", "lash", "keiz", "shz",
+  ],
+  NA: [
+    "Grim", "floppy", "hallzerk", "Sonic", "junior", "oSee", "Fang", "cxzi", "swisher", "reck",
+    "Lake", "SLIGHT", "wiz", "Jeorge", "JBa", "stanislaw", "daps", "autimatic", "Brehze", "HexT",
+    "nitr0", "Walco", "clasitas", "PwnAlone", "cooper", "motm", "Bwills", "cynic", "NosraC", "nosrac",
+    "marKE", "Infinite", "viz", "RUSH", "Jonji", "PoseidoNN", "wolffe", "K4mr0", "MisteM", "D4rty",
+  ],
+  ASIA: [
+    "Liazz", "INS", "aliStair", "vexite", "dexter", "HaZR", "Jynx", "Sico", "nettik", "sterling",
+    "Westmelon", "z4kr", "EmiliaQAQ", "Starry", "flying", "Jee", "Mercury", "JamYoung", "Moseyuh", "Attacker",
+    "somebody", "advent", "kaze", "B1NGO", "Summer", "ChildKing", "aumaN", "bottle", "cy1", "k4Mi",
+    "dobu", "kabal", "erkaSt", "yAmi", "sk0R", "Bart4k", "H4rn", "BnTeT", "f0rsakeN", "xccurate",
+  ],
+};
+
+const TIER2_TEAMS_RAW: Tier2SeedTuple[] = [
+  ["Complexity", "COL", "NA", "US", "#3b82f6", "T.c", 67, 250, 22, 20],
+  ["BIG", "BIG", "EU", "DE", "#1d4ed8", "kakafu", 67, 242, 23, 21],
+  ["fnatic", "FNC", "EU", "GB", "#f97316", "casle", 66, 234, 21, 20],
+  ["NIP", "NIP", "EU", "SE", "#a3e635", "Xizt", 66, 226, 21, 21],
+  ["ENCE", "ENCE", "EU", "FI", "#facc15", "enkay J", 66, 218, 20, 20],
+  ["SAW", "SAW", "EU", "PT", "#ef4444", "NABOWOW", 65, 210, 24, 22],
+  ["GamerLegion", "GL", "EU", "DE", "#2563eb", "ash", 65, 204, 22, 21],
+  ["B8", "B8", "CIS", "UA", "#38bdf8", "maddened", 65, 198, 24, 20],
+  ["Passion UA", "PUA", "CIS", "UA", "#fbbf24", "Kane", 64, 192, 22, 19],
+  ["Monte", "MNT", "EU", "UA", "#06b6d4", "lmbt", 64, 186, 21, 20],
+  ["Sangal", "SNG", "EU", "TR", "#ef4444", "Jumpy", 64, 180, 22, 20],
+  ["M80", "M80", "NA", "US", "#22c55e", "dephh", 64, 175, 25, 19],
+  ["FlyQuest", "FLY", "ASIA", "AU", "#16a34a", "erkaSt", 63, 170, 23, 20],
+  ["Wildcard", "WC", "NA", "US", "#dc2626", "vinS", 63, 165, 22, 20],
+  ["Lynn Vision", "LVG", "ASIA", "CN", "#8b5cf6", "GUM", 63, 160, 23, 21],
+  ["TYLOO", "TYL", "ASIA", "CN", "#ef4444", "zhokiNg", 62, 155, 22, 21],
+  ["Fluxo", "FLX", "SA", "BR", "#a855f7", "tacitus", 62, 150, 24, 21],
+  ["RED Canids", "RED", "SA", "BR", "#dc2626", "felippe1", 62, 146, 22, 21],
+  ["Sharks", "SHK", "SA", "BR", "#0ea5e9", "coachi", 61, 142, 23, 22],
+  ["ODDIK", "ODK", "SA", "BR", "#22d3ee", "rikz", 61, 138, 21, 21],
+  ["NRG", "NRG", "NA", "US", "#ef4444", "daps", 61, 134, 20, 21],
+  ["ECSTATIC", "ECS", "EU", "DK", "#6366f1", "casle", 61, 130, 21, 21],
+  ["Sashi", "SAS", "EU", "DK", "#f43f5e", "HUNDEN", 60, 126, 20, 21],
+  ["9INE", "9INE", "EU", "PL", "#8b5cf6", "nawrot", 60, 122, 20, 21],
+  ["Sinners", "SIN", "EU", "CZ", "#2563eb", "Tomkeejs", 60, 118, 21, 22],
+  ["500", "500", "EU", "BG", "#eab308", "djL", 60, 115, 20, 21],
+  ["Zero Tenacity", "ZT", "EU", "RS", "#14b8a6", "fajkus", 59, 112, 21, 22],
+  ["Dynamo Eclot", "ECL", "EU", "CZ", "#ec4899", "replay", 59, 109, 20, 21],
+  ["GUN5", "GUN5", "CIS", "RU", "#f59e0b", "n0rb3r7", 59, 106, 20, 21],
+  ["CYBERSHOKE", "CYB", "CIS", "RU", "#38bdf8", "brain", 59, 103, 19, 21],
+  ["AMKAL", "AMK", "CIS", "RU", "#f97316", "svyat", 58, 100, 19, 22],
+  ["9 Pandas", "9P", "CIS", "RU", "#ec4899", "Xoma", 58, 97, 19, 22],
+  ["FORZE", "FRZ", "CIS", "RU", "#ef4444", "Fierce", 58, 94, 18, 22],
+  ["RUSH B", "RUSH", "CIS", "RU", "#22c55e", "liTTle", 58, 91, 19, 22],
+  ["OG", "OG", "EU", "DK", "#3b82f6", "Lambert", 58, 88, 18, 22],
+  ["Endpoint", "END", "EU", "GB", "#06b6d4", "Rejin", 57, 85, 18, 22],
+  ["Metizport", "MTZ", "EU", "SE", "#6366f1", "abdi", 57, 82, 19, 22],
+  ["Eyeballers", "EYE", "EU", "SE", "#facc15", "JW", 57, 80, 18, 22],
+  ["Johnny Speeds", "JS", "EU", "SE", "#f43f5e", "chrille", 57, 78, 18, 22],
+  ["Alliance", "ALL", "EU", "SE", "#14b8a6", "Hawk", 56, 76, 17, 22],
+  ["Rebels", "RBL", "EU", "PL", "#dc2626", "SZPERO", 56, 74, 18, 22],
+  ["Permitta", "PRM", "EU", "PL", "#8b5cf6", "Loord", 56, 72, 17, 22],
+  ["Partizan", "PTZ", "EU", "RS", "#64748b", "emi", 56, 70, 17, 22],
+  ["Apeks", "APK", "EU", "NO", "#f97316", "kuben", 55, 68, 16, 23],
+  ["Into The Breach", "ITB", "EU", "GB", "#ef4444", "Juve", 55, 66, 16, 23],
+  ["Guild Eagles", "GE", "EU", "XK", "#f59e0b", "stikle-", 55, 64, 16, 23],
+  ["ALTERNATE aTTaX", "ATN", "EU", "DE", "#3b82f6", "xenn", 55, 62, 16, 23],
+  ["Sprout", "SPRT", "EU", "DE", "#22c55e", "berry", 54, 60, 15, 23],
+  ["BLEED", "BLD", "EU", "SG", "#dc2626", "kassad", 54, 58, 15, 23],
+  ["BESTIA", "BST", "SA", "AR", "#ef4444", "pino", 54, 56, 18, 22],
+  ["Solid", "SLD", "SA", "BR", "#f59e0b", "luq", 54, 54, 17, 22],
+  ["CASE", "CASE", "SA", "BR", "#38bdf8", "urban0", 53, 52, 17, 22],
+  ["KRÜ", "KRU", "SA", "AR", "#ec4899", "betony", 53, 50, 16, 22],
+  ["Bounty Hunters", "BH", "SA", "BR", "#a855f7", "kaiky", 53, 48, 16, 22],
+  ["Galorys", "GAL", "SA", "BR", "#10b981", "delboNi", 52, 46, 15, 23],
+  ["W7M", "W7M", "SA", "BR", "#dc2626", "raafa", 52, 44, 15, 23],
+  ["inSanitY", "INS", "SA", "BR", "#8b5cf6", "f4stzin", 52, 42, 15, 23],
+  ["2Game", "2G", "SA", "BR", "#22d3ee", "vaz", 51, 40, 14, 23],
+  ["Yawara", "YAW", "SA", "BR", "#facc15", "j0w", 51, 38, 14, 23],
+  ["Dusty Roots", "DR", "SA", "AR", "#a16207", "maxujas", 50, 36, 14, 24],
+  ["Nouns", "NNS", "NA", "US", "#ec4899", "adreN", 54, 55, 17, 22],
+  ["BOSS", "BOSS", "NA", "US", "#3b82f6", "warden", 53, 51, 16, 22],
+  ["Party Astronauts", "PA", "NA", "US", "#a855f7", "ben1337", 52, 47, 15, 23],
+  ["Elevate", "ELV", "NA", "US", "#ef4444", "walco", 51, 43, 14, 23],
+  ["Mythic", "MYT", "NA", "US", "#22c55e", "fl0m", 50, 39, 13, 24],
+  ["FLUFFY AIMERS", "FA", "NA", "US", "#f472b6", "brehze", 49, 35, 13, 24],
+  ["LAG", "LAG", "NA", "US", "#06b6d4", "og", 48, 32, 12, 24],
+  ["Take Flyte", "TF", "NA", "US", "#eab308", "zNf", 47, 29, 12, 25],
+  ["Rare Atom", "RA", "ASIA", "CN", "#38bdf8", "k4Mi", 54, 53, 17, 22],
+  ["The Huns", "HUNS", "ASIA", "MN", "#f59e0b", "maaRaa2", 53, 49, 16, 22],
+  ["ATOX", "ATOX", "ASIA", "MN", "#ef4444", "dobu", 52, 45, 16, 23],
+  ["Chinggis Warriors", "CW", "ASIA", "MN", "#dc2626", "ariucle", 51, 41, 15, 23],
+  ["Rooster", "RST", "ASIA", "AU", "#f97316", "asap", 50, 37, 14, 23],
+  ["Talon", "TLN", "ASIA", "HK", "#ef4444", "djL", 50, 34, 14, 24],
+  ["Housebets", "HB", "ASIA", "AU", "#22c55e", "pz", 49, 31, 13, 24],
+  ["Mindfreak", "MF", "ASIA", "AU", "#3b82f6", "texta", 48, 28, 12, 24],
+  ["Vantage", "VNT", "ASIA", "AU", "#a855f7", "vision", 47, 25, 12, 25],
+  ["Gods Reign", "GR", "ASIA", "IN", "#f59e0b", "Ph1NNN", 46, 22, 11, 25],
+  ["JiJieHao", "JJH", "ASIA", "CN", "#06b6d4", "ISSAA", 46, 20, 11, 25],
+  ["Alter Ego", "AE", "ASIA", "ID", "#ef4444", "BnTeT", 45, 18, 10, 26],
+];
+
+const ROLES_ORDER: PlayerRole[] = ["top", "jungle", "mid", "adc", "support"];
+
+function buildTier2Roster(
+  idx: number,
+  region: Tier2SeedTuple[2],
+  country: string,
+  elo: number,
+): Cs2SeedPlayerSpec[] {
+  const pool = REGIONAL_NICK_POOLS[region] ?? REGIONAL_NICK_POOLS.EU;
+  const baseOvr = Math.min(79, Math.max(62, elo + 8));
+  return ROLES_ORDER.map((role, rIdx) => {
+    const nick = pool[(idx * 5 + rIdx) % pool.length];
+    const ign = idx >= Math.floor(pool.length / 5) ? `${nick}${(idx % 9) + 1}` : nick;
+    const ovrOffset = rIdx === 2 ? 2 : rIdx === 3 ? 1 : rIdx === 4 ? -2 : 0;
+    return {
+      ign,
+      real: `${ign} (${country})`,
+      country,
+      age: 19 + ((idx + rIdx * 3) % 10),
+      role,
+      ovr: Math.min(82, Math.max(60, baseOvr + ovrOffset)),
+    };
+  });
+}
+
+const CS2_TIER2_TEAMS: Cs2SeedTeamSpec[] = TIER2_TEAMS_RAW.map((tuple, idx) => {
+  const [name, tag, region, country, color, coach, elo, points, wins, losses] = tuple;
+  return {
+    rank: 25 + idx,
+    name,
+    tag,
+    region,
+    color,
+    coach,
+    elo,
+    points,
+    wins,
+    losses,
+    titles: 0,
+    players: buildTier2Roster(idx, region, country, elo),
+  };
+});
+
+export const CS2_ALL_TEAMS_DB: Cs2SeedTeamSpec[] = [...CS2_TEAMS_DB, ...CS2_TIER2_TEAMS];
+
 function specToTeam(spec: Cs2SeedTeamSpec): Team {
   return {
     id: uid(),
@@ -569,7 +744,7 @@ function specToTeam(spec: Cs2SeedTeamSpec): Team {
 export function getCs2TeamRoster(name?: string | null, tag?: string | null): Player[] | undefined {
   const n = (name ?? "").trim().toLowerCase();
   const t = (tag ?? "").trim().toLowerCase();
-  const found = CS2_TEAMS_DB.find(
+  const found = CS2_ALL_TEAMS_DB.find(
     (s) =>
       (n && (s.name.toLowerCase() === n || n.includes(s.name.toLowerCase()))) ||
       (t && s.tag.toLowerCase() === t),
@@ -577,13 +752,13 @@ export function getCs2TeamRoster(name?: string | null, tag?: string | null): Pla
   return found ? found.players.map(makeCs2Player) : undefined;
 }
 
-/** Gera o ranking inicial HLTV / VRS de 2026 para `career.cs2`. */
+/** Gera o ranking inicial HLTV / VRS de 2026 para `career.cs2` (104 times). */
 export function buildCs2InitialCareer(): {
   teams: Record<string, CareerTeam>;
   titles: CareerTitle[];
 } {
   const teams: Record<string, CareerTeam> = {};
-  for (const spec of CS2_TEAMS_DB) {
+  for (const spec of CS2_ALL_TEAMS_DB) {
     teams[spec.name.toLowerCase()] = {
       name: spec.name,
       tag: spec.tag,
@@ -662,7 +837,7 @@ interface Cs2TournamentTemplate {
   scheduledMonth: number;
   internationalLevel: "none" | "minor" | "major";
   accentColor: string;
-  format: "swiss_playoffs" | "groups_playoffs" | "bracket";
+  format: "major_3swiss" | "swiss_playoffs" | "groups_playoffs" | "bracket";
   teamNames?: string[]; // se omitido, usa Top N do ranking HLTV
   teamCount: number;
 }
@@ -675,8 +850,8 @@ const CS2_CIRCUIT_2026: Cs2TournamentTemplate[] = [
     scheduledMonth: 6,
     internationalLevel: "major",
     accentColor: "#f59e0b",
-    format: "swiss_playoffs",
-    teamCount: 16,
+    format: "major_3swiss",
+    teamCount: 32,
   },
   {
     name: "PGL Major Singapore 2026",
@@ -685,8 +860,8 @@ const CS2_CIRCUIT_2026: Cs2TournamentTemplate[] = [
     scheduledMonth: 11,
     internationalLevel: "major",
     accentColor: "#eab308",
-    format: "swiss_playoffs",
-    teamCount: 16,
+    format: "major_3swiss",
+    teamCount: 32,
   },
   {
     name: "IEM Kraków 2026",
@@ -773,6 +948,67 @@ const CS2_CIRCUIT_2026: Cs2TournamentTemplate[] = [
 ];
 
 function buildCs2Phases(tpl: Cs2TournamentTemplate, teamIds: string[]): Phase[] {
+  if (tpl.format === "major_3swiss") {
+    // Major oficial de CS2 (32 times):
+    // - #1..#8 convidados direto ao Stage 3 (Swiss)
+    // - #9..#16 convidados direto ao Stage 2 (Swiss)
+    // - #17..#32 iniciam no Stage 1 (Swiss)
+    // - Top 8 de cada Swiss avança para o próximo estágio; Top 8 do Stage 3 vai aos Playoffs.
+    const stage3DirectIds = teamIds.slice(0, 8);
+    const stage2DirectIds = teamIds.slice(8, 16);
+    const stage1Ids = teamIds.slice(16, 32);
+    const swissConfig = {
+      kind: "swiss" as const,
+      winsToAdvance: 3,
+      lossesToEliminate: 3,
+      bestOf: 1 as const,
+      deciderBestOf: 3 as const,
+    };
+    const playoffsConfig = {
+      kind: "bracket" as const,
+      slots: 8,
+      type: "single" as const,
+      defaultBestOf: 3 as const,
+      finalBestOf: 5 as const,
+      bracketReset: false,
+    };
+    return [
+      {
+        id: uid(),
+        name: "Stage 1 (Swiss)",
+        kind: "swiss",
+        config: swissConfig,
+        advanceCount: 8,
+        matches: buildPhaseMatches(swissConfig, stage1Ids, []),
+      },
+      {
+        id: uid(),
+        name: "Stage 2 (Swiss)",
+        kind: "swiss",
+        config: swissConfig,
+        advanceCount: 8,
+        directTeamIds: stage2DirectIds,
+        matches: buildPhaseMatches(swissConfig, stage2DirectIds, []),
+      },
+      {
+        id: uid(),
+        name: "Stage 3 (Swiss)",
+        kind: "swiss",
+        config: swissConfig,
+        advanceCount: 8,
+        directTeamIds: stage3DirectIds,
+        matches: buildPhaseMatches(swissConfig, stage3DirectIds, []),
+      },
+      {
+        id: uid(),
+        name: "Playoffs",
+        kind: "bracket",
+        config: playoffsConfig,
+        matches: buildPhaseMatches(playoffsConfig, [], []),
+      },
+    ];
+  }
+
   if (tpl.format === "swiss_playoffs") {
     const swissConfig = {
       kind: "swiss" as const,
@@ -876,9 +1112,9 @@ export function buildCs2SeedChampionships(): Championship[] {
   return CS2_CIRCUIT_2026.map((tpl) => {
     const specs = tpl.teamNames
       ? tpl.teamNames
-          .map((n) => CS2_TEAMS_DB.find((s) => s.name.toLowerCase() === n.toLowerCase()))
+          .map((n) => CS2_ALL_TEAMS_DB.find((s) => s.name.toLowerCase() === n.toLowerCase()))
           .filter((x): x is Cs2SeedTeamSpec => !!x)
-      : CS2_TEAMS_DB.slice(0, tpl.teamCount);
+      : CS2_ALL_TEAMS_DB.slice(0, tpl.teamCount);
 
     const teams = specs.map(specToTeam);
     const teamIds = teams.map((t) => t.id);

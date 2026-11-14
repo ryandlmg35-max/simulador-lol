@@ -87,7 +87,7 @@ import {
 } from "./transfers";
 
 const STORAGE_KEY = "lol-esports-sim:v2";
-const CS2_SEED_FLAG = "lol-esports-sim:cs2-seeded-v2";
+const CS2_SEED_FLAG = "lol-esports-sim:cs2-seeded-v3";
 const CAREER_KEY = "lol-esports-sim:career:v1";
 const CAREER_SEED_FLAG = "lol-esports-sim:career-seeded:v1";
 
@@ -1700,13 +1700,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // (idempotente pelas chaves de crédito — roda 1x só).
     try {
       const seedCs2IfEmpty = (ledger: CareerLedger): CareerLedger => {
-        if (Object.keys(ledger.cs2 ?? {}).length > 0) return ledger;
         const initCs2 = buildCs2InitialCareer();
+        const existingCs2 = ledger.cs2 ?? {};
+        const mergedCs2: Record<string, CareerTeam> = { ...existingCs2 };
+        let added = false;
+        for (const [key, team] of Object.entries(initCs2.teams)) {
+          if (!mergedCs2[key]) {
+            mergedCs2[key] = team;
+            added = true;
+          }
+        }
         const existingTitles = ledger.titles ?? [];
         const hasCs2Titles = existingTitles.some((t) => t.game === "cs2");
+        if (!added && hasCs2Titles && Object.keys(existingCs2).length > 0) return ledger;
         return {
           ...ledger,
-          cs2: initCs2.teams,
+          cs2: mergedCs2,
           titles: hasCs2Titles ? existingTitles : [...initCs2.titles, ...existingTitles],
         };
       };
