@@ -100,6 +100,7 @@ function RankingPage() {
     teamLogo?: string;
   }[] = [];
   for (const t of career.titles ?? []) {
+    if ((t.game ?? "lol") !== game) continue;
     if (isWorldCupTitle(t.champName)) {
       worldCupPodium.push({
         champName: t.champName,
@@ -258,8 +259,14 @@ function RankingPage() {
                   <th className="px-4 py-3 text-center">Pts Totais</th>
                   <th className="px-4 py-3 text-center">Títulos</th>
                   <th className="px-4 py-3 text-center">Momento Int.</th>
-                  <th className="px-4 py-3 text-center">Vagas Worlds</th>
-                  <th className="px-4 py-3 text-center">Vagas MSI</th>
+                  {game === "cs2" ? (
+                    <th className="px-4 py-3 text-center">Vagas Major (VRS)</th>
+                  ) : (
+                    <>
+                      <th className="px-4 py-3 text-center">Vagas Worlds</th>
+                      <th className="px-4 py-3 text-center">Vagas MSI</th>
+                    </>
+                  )}
                   <th className="px-4 py-3 text-center">Times</th>
                 </tr>
               </thead>
@@ -293,30 +300,48 @@ function RankingPage() {
                           </span>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-block border px-2.5 py-1 font-display text-lg ${
-                            stats.worldsSlots >= 4
-                              ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400"
-                              : stats.worldsSlots >= 3
-                                ? "border-gold/60 bg-gold/15 text-gold"
-                                : "border-border bg-black/40 text-muted-foreground"
-                          }`}
-                        >
-                          {stats.worldsSlots}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-block border px-2.5 py-1 font-display text-lg ${
-                            stats.msiSlots >= 2
-                              ? "border-blood/50 bg-blood/15 text-blood"
-                              : "border-border bg-black/40 text-muted-foreground"
-                          }`}
-                        >
-                          {stats.msiSlots}
-                        </span>
-                      </td>
+                      {game === "cs2" ? (
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`inline-block border px-2.5 py-1 font-display text-lg ${
+                              stats.rank <= 2
+                                ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400"
+                                : stats.rank <= 4
+                                  ? "border-gold/60 bg-gold/15 text-gold"
+                                  : "border-border bg-black/40 text-muted-foreground"
+                            }`}
+                          >
+                            {stats.rank === 1 ? 10 : stats.rank === 2 ? 8 : stats.rank === 3 ? 6 : 4}
+                          </span>
+                        </td>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-block border px-2.5 py-1 font-display text-lg ${
+                                stats.worldsSlots >= 4
+                                  ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400"
+                                  : stats.worldsSlots >= 3
+                                    ? "border-gold/60 bg-gold/15 text-gold"
+                                    : "border-border bg-black/40 text-muted-foreground"
+                              }`}
+                            >
+                              {stats.worldsSlots}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-block border px-2.5 py-1 font-display text-lg ${
+                                stats.msiSlots >= 2
+                                  ? "border-blood/50 bg-blood/15 text-blood"
+                                  : "border-border bg-black/40 text-muted-foreground"
+                              }`}
+                            >
+                              {stats.msiSlots}
+                            </span>
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-3 text-center text-sm text-muted-foreground">
                         {stats.teamsCount}
                       </td>
@@ -325,9 +350,11 @@ function RankingPage() {
                 })}
                 {officialRegionRanking.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={game === "cs2" ? 7 : 8} className="px-4 py-8 text-center text-muted-foreground">
                       {hydrated
-                        ? "Cadastre a região (ex: CBLOL, LCK) nos times para ver este ranking."
+                        ? game === "cs2"
+                          ? "Cadastre a região (ex: EU, CIS, SA, NA, ASIA) nos times para ver este ranking."
+                          : "Cadastre a região (ex: CBLOL, LCK) nos times para ver este ranking."
                         : "Carregando…"}
                     </td>
                   </tr>
@@ -336,7 +363,9 @@ function RankingPage() {
             </table>
           </div>
           <p className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-            🌎 VAGAS POR MOMENTO INTERNACIONAL: A posição (#1 ao #6) é definida pelo Coeficiente de Momento dos últimos 4 torneios internacionais (títulos, finais e playoffs impulsionam a região para cima; pipocadas derrubam a região na tabela). As vagas seguem estritamente a escada da tabela: Top 2 (4 Worlds / 2 MSI) · #3 e #4 (3 Worlds / 2 MSI) · #5 e #6 (2 Worlds / 1 MSI).
+            {game === "cs2"
+              ? "🌎 RANKING REGIONAL VRS (CS2): A força das 5 regiões competitivas (EU, CIS, SA, NA, ASIA) reflete os pontos VRS/HLTV acumulados e o desempenho recente nos Majors (32 times, 3 Fases Suíças) e grandes LANs internacionais."
+              : "🌎 VAGAS POR MOMENTO INTERNACIONAL: A posição (#1 ao #6) é definida pelo Coeficiente de Momento dos últimos 4 torneios internacionais (títulos, finais e playoffs impulsionam a região para cima; pipocadas derrubam a região na tabela). As vagas seguem estritamente a escada da tabela: Top 2 (4 Worlds / 2 MSI) · #3 e #4 (3 Worlds / 2 MSI) · #5 e #6 (2 Worlds / 1 MSI)."}
           </p>
         </section>
 
@@ -488,7 +517,10 @@ function RankingPage() {
               </h2>
               <p className="text-xs text-muted-foreground">
                 Compare quaisquer dois times do mundo somando todas as séries e mapas já disputados
-                na história do seu save (ligas regionais, MSI e Worlds).
+                na história do seu save{" "}
+                {game === "cs2"
+                  ? "(ligas regionais, IEMs, ESL Pro League e Majors)."
+                  : "(ligas regionais, MSI e Worlds)."}
               </p>
             </div>
           </div>

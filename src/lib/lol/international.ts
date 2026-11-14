@@ -172,9 +172,46 @@ function normalizeKey(value: string): string {
     .trim();
 }
 
-export function normalizeRegion(region?: string): string {
+const CS2_REGION_ALIASES: Record<string, string> = {
+  EU: "EU",
+  EUROPE: "EU",
+  EMEA: "EU",
+  LEC: "EU",
+  CIS: "CIS",
+  RU: "CIS",
+  UA: "CIS",
+  KZ: "CIS",
+  SA: "SA",
+  BR: "SA",
+  AR: "SA",
+  CL: "SA",
+  UY: "SA",
+  LATAM: "SA",
+  BRAZIL: "SA",
+  BRASIL: "SA",
+  NA: "NA",
+  US: "NA",
+  USA: "NA",
+  CA: "NA",
+  CANADA: "NA",
+  LCS: "NA",
+  ASIA: "ASIA",
+  APAC: "ASIA",
+  OCE: "ASIA",
+  AU: "ASIA",
+  CN: "ASIA",
+  MN: "ASIA",
+  INT: "INT",
+  INTERNACIONAL: "INT",
+  INTERNATIONAL: "INT",
+};
+
+export function normalizeRegion(region?: string, game: GameId = "lol"): string {
   const raw = normalizeKey(region ?? "");
   if (!raw) return "";
+  if (game === "cs2") {
+    return CS2_REGION_ALIASES[raw] ?? raw;
+  }
   return REGION_ALIASES[raw] ?? raw;
 }
 
@@ -425,6 +462,7 @@ export function extractSeasonFromChampName(name: string, fallbackSeason?: string
 }
 
 export const ACTIVE_CIRCUIT_REGIONS = ["LCK", "LPL", "LEC", "LCS", "CBLOL", "LCP"] as const;
+export const CS2_CIRCUIT_REGIONS = ["EU", "CIS", "SA", "NA", "ASIA"] as const;
 
 export interface RegionSlotInfo {
   region: string;
@@ -481,7 +519,8 @@ export function getOfficialRegionRanking(
     }
   >();
 
-  for (const reg of ACTIVE_CIRCUIT_REGIONS) {
+  const baseRegions = game === "cs2" ? CS2_CIRCUIT_REGIONS : ACTIVE_CIRCUIT_REGIONS;
+  for (const reg of baseRegions) {
     statsMap.set(reg, {
       points: 0,
       titles: 0,
@@ -497,8 +536,8 @@ export function getOfficialRegionRanking(
   // Agrega pontos e títulos históricos do Hall da Fama (vitrine permanente, NÃO trava vagas!)
   for (const stats of careerTeams) {
     const raw = stats.region?.trim() || "";
-    let reg = normalizeRegion(raw);
-    if (!reg) {
+    let reg = normalizeRegion(raw, game);
+    if (!reg && game !== "cs2") {
       reg = inferTeamRegion(stats.name);
     }
     if (!reg) continue;
@@ -520,7 +559,7 @@ export function getOfficialRegionRanking(
 
   // Agrega pontos internacionais acumulados (histórico geral internacional)
   for (const [rawReg, row] of Object.entries(career?.international?.[game] ?? {})) {
-    const reg = normalizeRegion(rawReg);
+    const reg = normalizeRegion(rawReg, game);
     if (!reg) continue;
     const entry = statsMap.get(reg) || {
       points: 0,
@@ -549,7 +588,7 @@ export function getOfficialRegionRanking(
       const weight = RECENCY_WEIGHTS[distFromLatest] ?? 0.25;
 
       for (const [rawReg, perf] of Object.entries(ed.regionScores ?? {})) {
-        const reg = normalizeRegion(rawReg);
+        const reg = normalizeRegion(rawReg, game);
         if (!reg) continue;
         const entry = statsMap.get(reg) || {
           points: 0,
@@ -873,7 +912,7 @@ export function planInternationalField(params: {
   for (const team of teams) {
     const ledger = careerTable[team.name.trim().toLowerCase()];
     ledgerByName.set(team.id, ledger);
-    const region = normalizeRegion(team.region || ledger?.region || fallbackRegion) || "OUTROS";
+    const region = normalizeRegion(team.region || ledger?.region || fallbackRegion, game) || "OUTROS";
     const list = byRegion.get(region) ?? [];
     list.push(team);
     byRegion.set(region, list);

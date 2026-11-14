@@ -433,67 +433,106 @@ function CalendarPage() {
           </div>
         </div>
 
-        {/* MAPA DOS 3 SPLITS DA TEMPORADA (Resumo Visual dos Ciclos) */}
+        {/* MAPA DOS 3 CICLOS DA TEMPORADA (Resumo Visual dos Ciclos) */}
         <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Ciclo 1 */}
           <div className="border-2 border-cyan-400/50 bg-cyan-400/5 p-4 rounded shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="font-display text-xs uppercase tracking-widest font-bold text-cyan-300">
-                ⚡ CICLO 1: SPLIT 1 → FIRST STAND
+                {game === "cs2"
+                  ? "⚡ CICLO 1: IEM KRAKÓW & CIRCUIT"
+                  : "⚡ CICLO 1: SPLIT 1 → FIRST STAND"}
               </span>
               <span className="text-[10px] bg-cyan-400/20 px-2 py-0.5 rounded text-cyan-300 font-mono">
                 JAN - MAR
               </span>
             </div>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <div>• <strong>Jan/Fev</strong>: Ligas Regionais (Split 1)</div>
-              <div>• <strong>Março</strong>: ⚡ <strong>First Stand Tournament</strong></div>
-              <div className="text-[11px] text-cyan-300 mt-1 font-semibold">
-                🎯 Classificam-se: Campeões do Split 1 de cada região.
+            {game === "cs2" ? (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>• <strong>Fev</strong>: ⚡ <strong>IEM Kraków 2026</strong></div>
+                <div>• <strong>Mar</strong>: Ligas Regionais & Qualifiers VRS</div>
+                <div className="text-[11px] text-cyan-300 mt-1 font-semibold">
+                  🎯 Corrida inicial pelos pontos do Ranking VRS / HLTV.
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>• <strong>Jan/Fev</strong>: Ligas Regionais (Split 1)</div>
+                <div>• <strong>Março</strong>: ⚡ <strong>First Stand Tournament</strong></div>
+                <div className="text-[11px] text-cyan-300 mt-1 font-semibold">
+                  🎯 Classificam-se: Campeões do Split 1 de cada região.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Ciclo 2 */}
           <div className="border-2 border-amber-400/50 bg-amber-400/5 p-4 rounded shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="font-display text-xs uppercase tracking-widest font-bold text-amber-300">
-                👑 CICLO 2: SPLIT 2 → MSI & RIFT RIVALS
+                {game === "cs2"
+                  ? "👑 CICLO 2: IEM RIO, ASTANA & COLOGNE MAJOR"
+                  : "👑 CICLO 2: SPLIT 2 → MSI & RIFT RIVALS"}
               </span>
               <span className="text-[10px] bg-amber-400/20 px-2 py-0.5 rounded text-amber-300 font-mono">
                 ABR - JUL
               </span>
             </div>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <div>• <strong>Abr/Mai</strong>: Ligas Regionais (Split 2)</div>
-              <div>• <strong>Junho</strong>: 👑 <strong>Mid-Season Invitational (MSI)</strong></div>
-              <div>• <strong>Julho</strong>: ⚔️ <strong>Rift Rivals: Batalha Continental</strong></div>
-              <div className="text-[11px] text-amber-300 mt-1 font-semibold">
-                🎯 Classificam-se: Top 1 e 2 do Split 2 para o MSI.
+            {game === "cs2" ? (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>• <strong>Abr/Mai</strong>: <strong>IEM Rio</strong> & <strong>PGL Astana</strong></div>
+                <div>• <strong>Junho</strong>: 👑 <strong>IEM Cologne Major (32 times)</strong></div>
+                <div>• <strong>Julho</strong>: ⚔️ <strong>BLAST Bounty Summer</strong></div>
+                <div className="text-[11px] text-amber-300 mt-1 font-semibold">
+                  🎯 Major em 3 Fases Suíças + Playoffs na LANXESS Arena.
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>• <strong>Abr/Mai</strong>: Ligas Regionais (Split 2)</div>
+                <div>• <strong>Junho</strong>: 👑 <strong>Mid-Season Invitational (MSI)</strong></div>
+                <div>• <strong>Julho</strong>: ⚔️ <strong>Rift Rivals: Batalha Continental</strong></div>
+                <div className="text-[11px] text-amber-300 mt-1 font-semibold">
+                  🎯 Classificam-se: Top 1 e 2 do Split 2 para o MSI.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Ciclo 3 */}
           <div className="border-2 border-gold/60 bg-gold/5 p-4 rounded shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="font-display text-xs uppercase tracking-widest font-bold text-gold">
-                🏆 CICLO 3: SPLIT 3 → MUNDIAL (WORLDS)
+                {game === "cs2"
+                  ? "🏆 CICLO 3: EWC, PRO LEAGUE & SINGAPORE MAJOR"
+                  : "🏆 CICLO 3: SPLIT 3 → MUNDIAL (WORLDS)"}
               </span>
               <span className="text-[10px] bg-gold/20 px-2 py-0.5 rounded text-gold font-mono">
                 JUL - DEZ
               </span>
             </div>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <div>• <strong>Jul/Ago</strong>: Ligas Regionais (Split 3 - Decisão)</div>
-              <div>• <strong>Agosto</strong>: 🌐 <strong>Global Masters & Supercopa</strong></div>
-              <div>• <strong>Setembro</strong>: 🛡️ <strong>Copa dos Desafiantes</strong></div>
-              <div>• <strong>Out/Nov</strong>: 🏆 <strong>Mundial (Worlds)</strong></div>
-              <div>• <strong>Dezembro</strong>: 🌍 <strong>Copa do Mundo de Seleções</strong></div>
-              <div className="text-[11px] text-gold mt-1 font-semibold">
-                🎯 Classificam-se: Melhores dos 3 Splits & Vagas Globais.
+            {game === "cs2" ? (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>• <strong>Agosto</strong>: 🌐 <strong>Esports World Cup (KSA)</strong></div>
+                <div>• <strong>Outubro</strong>: 🛡️ <strong>ESL Pro League S24</strong></div>
+                <div>• <strong>Novembro</strong>: 🏆 <strong>PGL Major Singapore (32 times)</strong></div>
+                <div>• <strong>Nov/Dez</strong>: ⚔️ <strong>BLAST Rivals Fall</strong></div>
+                <div className="text-[11px] text-gold mt-1 font-semibold">
+                  🎯 32 melhores times do VRS em 3 Fases Suíças + Playoffs.
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>• <strong>Jul/Ago</strong>: Ligas Regionais (Split 3 - Decisão)</div>
+                <div>• <strong>Agosto</strong>: 🌐 <strong>Global Masters & Supercopa</strong></div>
+                <div>• <strong>Setembro</strong>: 🛡️ <strong>Copa dos Desafiantes</strong></div>
+                <div>• <strong>Out/Nov</strong>: 🏆 <strong>Mundial (Worlds)</strong></div>
+                <div>• <strong>Dezembro</strong>: 🌍 <strong>Copa do Mundo de Seleções</strong></div>
+                <div className="text-[11px] text-gold mt-1 font-semibold">
+                  🎯 Classificam-se: Melhores dos 3 Splits & Vagas Globais.
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -616,13 +655,17 @@ function CalendarPage() {
                 <div className="flex items-center gap-1.5">
                   <div className="h-3 w-3 bg-gold" />
                   <span className="font-display uppercase tracking-wider text-gold font-bold">
-                    Major (Worlds & MSI · 2.0x)
+                    {game === "cs2"
+                      ? "Major / Tier-S (IEM, PGL Major · 2.0x)"
+                      : "Major (Worlds & MSI · 2.0x)"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="h-3 w-3 bg-cyan-400" />
                   <span className="font-display uppercase tracking-wider text-cyan-300 font-bold">
-                    Minor Internacional (First Stand, Rift Rivals, etc. · 1.35x)
+                    {game === "cs2"
+                      ? "Internacional (EPL, BLAST, PGL · 1.35x)"
+                      : "Minor Internacional (First Stand, Rift Rivals, etc. · 1.35x)"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">

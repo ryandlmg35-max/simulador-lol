@@ -97,10 +97,17 @@ export function TeamProfileDrawer({
       .trim()
       .toLowerCase();
 
+  const activeGame =
+    championship?.game ??
+    (["EU", "CIS", "SA", "NA", "ASIA"].includes((team.region ?? "").trim().toUpperCase())
+      ? "cs2"
+      : "lol");
+
   const titleMap = new Map<string, DetailedTitle>();
 
   // 1. Títulos registrados no Hall da Fama permanente da Carreira (career.titles)
   for (const t of career?.titles ?? []) {
+    if ((t.game ?? "lol") !== activeGame) continue;
     if (matchTeam(t.teamName, t.teamTag)) {
       const tourney = canonicalTournamentName(t.champName || championship?.name || "Campeonato Oficial");
       const split = t.label || "Edição Oficial";
@@ -117,7 +124,8 @@ export function TeamProfileDrawer({
   }
 
   // 2. Títulos salvos no histórico das edições (championship.history)
-  const allPool = championship ? [championship, ...effectiveChampionships] : effectiveChampionships;
+  const allPool = (championship ? [championship, ...effectiveChampionships] : effectiveChampionships)
+    .filter((c) => (c.game ?? "lol") === activeGame);
   for (const c of allPool) {
     const listA = (c.history ?? []).map((h) => ({ h, div: "Série A", cName: c.name }));
     const listB = (c.serieB?.history ?? []).map((h) => ({ h, div: "Série B", cName: `${c.name} (Série B)` }));
